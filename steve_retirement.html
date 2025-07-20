@@ -1,0 +1,370 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Steve Schibler's Retirement</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700;800&display=swap" rel="stylesheet">
+    <!-- Chosen Palette: Royal Purple (Light Violet Background, Deep Violet Text/Accents, Gold Highlights) -->
+    <!-- Application Structure Plan: A single-page, scrolling interactive story celebrating Steve's career. The structure follows a chronological timeline, interspersed with highlighted "Greatest Hits" in a card-based format and a dynamic chart for data visualization. This narrative structure is more engaging for a personal tribute than a rigid dashboard, allowing users to journey through Steve's career milestones intuitively. -->
+    <!-- Visualization & Content Choices: 
+        - Career Path: Goal: Show progression. Method: Vertical Timeline (HTML/CSS). Interaction: Scroll-based discovery. Justification: Clear, chronological storytelling.
+        - Key Stats (Years, Sales): Goal: Emphasize impact. Method: Animated Number Counters (JS). Interaction: On-scroll animation. Justification: Creates a dynamic and impressive feel.
+        - AOV Growth: Goal: Visualize business impact. Method: Bar Chart (Chart.js). Interaction: Tooltips on hover. Justification: A simple, clear way to show a quantitative comparison.
+        - Anecdotes & Awards: Goal: Highlight key moments. Method: Styled Cards (HTML/CSS). Interaction: Hover effects. Justification: Breaks up text and makes key stories easily digestible.
+        - LLM Features: Goal: Enhance engagement and personalization. Method: Text generation via Gemini API. Interaction: Button clicks, text input. Justification: Adds a unique, AI-powered element to the tribute.
+        - Image Gallery: Goal: Showcase visual memories. Method: Responsive Image Grid (HTML/CSS). Justification: Provides a dedicated space for photos, replacing the wisdom section for a more visual tribute.
+        - Library/Method Confirmation: Chart.js for the chart. All other visuals are structured HTML/CSS with Tailwind. -->
+    <!-- CONFIRMATION: NO SVG graphics used. NO Mermaid JS used. -->
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f8f9fa; /* Keeping a very light neutral background */
+        }
+        .timeline-item::before {
+            content: '';
+            position: absolute;
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            background-color: #ffffff;
+            border: 4px solid #4c1d95; /* Violet-800 */
+            top: 0;
+            left: -10px;
+            z-index: 1;
+        }
+        .timeline-line {
+            position: absolute;
+            left: 0;
+            top: 0;
+            bottom: 0;
+            width: 4px;
+            background-color: #ddd6fe; /* Violet-200 */
+            transform: translateX(-50%);
+        }
+        .award-card {
+            background-color: #fff;
+            border-left: 5px solid #d97706; /* Amber-600 for a gold-like accent */
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+        }
+        .award-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
+        }
+        .chart-container {
+            position: relative;
+            width: 100%;
+            max-width: 600px;
+            margin-left: auto;
+            margin-right: auto;
+            height: 300px;
+            max-height: 400px;
+        }
+        @media (min-width: 768px) {
+            .chart-container {
+                height: 350px;
+            }
+        }
+    </style>
+</head>
+<body class="text-gray-800">
+
+    <header class="bg-violet-900 text-white text-center py-12 shadow-lg">
+        <h1 class="text-4xl md:text-5xl font-extrabold tracking-tight">Steve Schibler's Retirement</h1>
+        <p class="mt-4 text-xl text-violet-200">Celebrating a Remarkable 29-Year Journey</p>
+    </header>
+
+    <main class="container mx-auto px-4 sm:px-6 lg:px-8 py-12">
+        
+        <!-- Introduction Section -->
+        <section class="text-center mb-16">
+            <h2 class="text-3xl font-bold text-violet-900 mb-4">It’s time to put your feet up, Steve!</h2>
+            <p class="max-w-3xl mx-auto text-lg text-gray-600">
+                After 29 incredible years, we're here to celebrate the career, stories, and legacy of a true company legend. From his beginnings as an apprentice upholsterer to becoming one of our most respected and successful salespeople, Steve's journey is one of hard work, adaptation, and outstanding achievement. Let's take a walk down memory lane.
+            </p>
+        </section>
+
+        <!-- Key Stats Section -->
+        <section class="grid grid-cols-1 md:grid-cols-3 gap-8 text-center mb-20">
+            <div class="bg-white p-6 rounded-lg shadow-md">
+                <p class="text-5xl font-extrabold text-violet-900" data-target="29">0</p>
+                <p class="text-lg font-medium text-gray-500 mt-2">Years with the Company</p>
+            </div>
+            <div class="bg-white p-6 rounded-lg shadow-md">
+                <p class="text-5xl font-extrabold text-violet-900">£<span data-target="204">0</span>k</p>
+                <p class="text-lg font-medium text-gray-500 mt-2">Booked on OKR Opening Day</p>
+            </div>
+            <div class="bg-white p-6 rounded-lg shadow-md">
+                <p class="text-5xl font-extrabold text-violet-900"><span data-target="2">0</span>x</p>
+                <p class="text-lg font-medium text-gray-500 mt-2">AOV Growth Witnessed</p>
+            </div>
+        </section>
+
+        <!-- Career Timeline Section -->
+        <section class="mb-20">
+            <h2 class="text-3xl font-bold text-violet-900 text-center mb-12">Steve's Career Timeline</h2>
+            <div class="relative max-w-2xl mx-auto pl-8">
+                <div class="timeline-line"></div>
+                
+                <!-- Timeline Item 1: The Beginning -->
+                <div class="mb-12 relative timeline-item">
+                    <h3 class="text-2xl font-bold text-violet-800 mb-2">The Early Days: Finding the Calling</h3>
+                    <p class="text-sm text-gray-500 mb-4 font-medium">Apprenticeship & First Jobs</p>
+                    <div class="bg-white p-6 rounded-lg shadow-md">
+                        <p class="text-gray-700">Following in his tailor father's footsteps, but with a twist, Steve began his journey as an apprentice upholsterer. He landed his first job at <strong>Beales of Poole</strong>, where in true Steve style, he sold not just furniture but electricals too, much to the surprise of his colleagues! He then moved to London, excelled at <strong>TANDY</strong>, and famously doubled the volume at the Croydon branch by introducing the radical "concept of selling to customers."</p>
+                    </div>
+                </div>
+
+                <!-- Timeline Item 2: Joining DFS -->
+                <div class="mb-12 relative timeline-item">
+                    <h3 class="text-2xl font-bold text-violet-800 mb-2">The DFS Era Begins</h3>
+                    <p class="text-sm text-gray-500 mb-4 font-medium">Headhunted & The Sidcup Start</p>
+                    <div class="bg-white p-6 rounded-lg shadow-md">
+                        <p class="text-gray-700">Success didn't go unnoticed. Steve was headhunted by DFS and started his journey in Sidcup, immediately doubling his income. It was here he learned from the competitive "sharks" like Ali Mehmet, adopting winning strategies like numbering his order pad to hit daily targets. He also witnessed the "wild west" of retail, a far cry from the supportive atmosphere we have today!</p>
+                    </div>
+                </div>
+                
+                <!-- Timeline Item 3: OKR & Memorable Deals -->
+                <div class="mb-12 relative timeline-item">
+                    <h3 class="text-2xl font-bold text-violet-800 mb-2">The OKR Chapter</h3>
+                    <p class="text-sm text-gray-500 mb-4 font-medium">Record-Breaking & The Lagos Call</p>
+                    <div class="bg-white p-6 rounded-lg shadow-md">
+                        <p class="text-gray-700">In 2011, Steve moved to the new OKR store and made history, finishing as "top book" on an incredible <strong>£204k opening day</strong>. This was also the scene of one of his most memorable deals: a £6.5k order taken over the phone from a customer in Lagos, Nigeria, with a cash deposit delivered by a shipper. A testament to his adaptability and sales prowess.</p>
+                    </div>
+                </div>
+
+                <!-- Timeline Item 4: Legacy -->
+                <div class="relative timeline-item">
+                    <h3 class="text-2xl font-bold text-violet-800 mb-2">The Legacy: Awards & Well-Deserved Success</h3>
+                    <p class="text-sm text-gray-500 mb-4 font-medium">Sidcup Return & Final Flourish</p>
+                    <div class="bg-white p-6 rounded-lg shadow-md">
+                        <p class="text-gray-700">Returning to Sidcup 5 years ago, Steve found a wonderful, supportive team. His hard work paid off personally, with a new roof thanks to company shares and a mortgage-free life in 2015. He was recognized with trips to the <strong>Millionaires Club</strong> in Paris, a heartwarming <strong>CIN award</strong> win that bought his daughter's wedding dress, and a final, fitting <strong>RETAIL VALUES AWARD</strong> in his last month. What a finish!</p>
+                    </div>
+                </div>
+            </div>
+        </section>
+        
+        <!-- Highlights & AOV Chart Section -->
+        <section class="bg-violet-50 py-16 rounded-lg shadow-inner mb-20">
+            <div class="container mx-auto px-4">
+                <h2 class="text-3xl font-bold text-violet-900 text-center mb-12">Career Highlights & Impact</h2>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-8 items-center">
+                    
+                    <!-- Greatest Hits -->
+                    <div class="space-y-6">
+                        <div class="award-card p-5 rounded-lg shadow-sm">
+                            <h4 class="text-xl font-bold text-amber-600">🏆 Millionaire's Club Inductee</h4>
+                            <p class="text-gray-600 mt-1">Celebrated success in Paris. As Steve says, "what happens in Paris stays in Paris!"</p>
+                        </div>
+                         <div class="award-card p-5 rounded-lg shadow-sm">
+                            <h4 class="text-xl font-bold text-amber-600">💖 CIN Award Winner</h4>
+                            <p class="text-gray-600 mt-1">A well-deserved win for his charity efforts, made extra special by using the winnings to buy his daughter's wedding dress.</p>
+                        </div>
+                        <div class="award-card p-5 rounded-lg shadow-sm">
+                            <h4 class="text-xl font-bold text-amber-600">⭐ RETAIL VALUES AWARD Winner</h4>
+                            <p class="text-gray-600 mt-1">A final, prestigious award in his last month of service. A perfect ending to a stellar career.</p>
+                        </div>
+                    </div>
+                    
+                    <!-- AOV Chart -->
+                    <div>
+                        <h4 class="text-xl font-bold text-center text-violet-900 mb-4">Growth in Average Order Value</h4>
+                        <div class="chart-container bg-white p-4 rounded-lg shadow-md w-full max-w-lg mx-auto h-80 relative">
+                             <canvas id="aovChart"></canvas>
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+        </section>
+
+        <!-- Photo Gallery Section -->
+        <section class="bg-violet-50 py-16 rounded-lg shadow-inner mb-20">
+            <div class="container mx-auto px-4 text-center">
+                <h2 class="text-3xl font-bold text-violet-900 mb-8">📸 Memories Through the Years 📸</h2>
+                <p class="max-w-3xl mx-auto text-lg text-gray-600 mb-12">
+                    A collection of moments from Steve's incredible journey. This image captures the spirit, camaraderie, and memorable events throughout his 29 years with us.
+                </p>
+                <div class="grid grid-cols-1 place-items-center gap-6">
+                    <!-- Only one image, centered -->
+                    <div class="bg-white rounded-lg shadow-md overflow-hidden max-w-md w-full">
+                        <img src="https://i.imgur.com/xGNQVoM.jpeg" alt="Steve ready for retirement" class="w-full h-auto object-cover">
+                        <p class="p-4 text-gray-700 text-sm">Steve, ready for a well-deserved retirement!</p>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Gemini API Feature: Craft a Retirement Wish -->
+        <section class="bg-violet-50 py-16 rounded-lg shadow-inner mb-20">
+            <div class="container mx-auto px-4 text-center">
+                <h2 class="text-3xl font-bold text-violet-900 mb-4">✨ Craft a Retirement Wish for Steve ✨</h2>
+                <p class="max-w-3xl mx-auto text-lg text-gray-600 mb-8">
+                    Want to send Steve a personalized retirement message but need a little inspiration? Enter a few keywords about what you'd like to include, and our AI will help you craft a heartfelt wish!
+                </p>
+                <textarea id="wishKeywordsInput" class="w-full max-w-xl p-4 border border-violet-300 rounded-lg shadow-sm focus:ring-violet-500 focus:border-violet-500 mb-4" rows="3" placeholder="e.g., golf, relaxation, family time, well-deserved break"></textarea>
+                <button id="generateWishBtn" class="bg-violet-600 hover:bg-violet-700 text-white font-bold py-3 px-6 rounded-full shadow-lg transition duration-300 ease-in-out transform hover:scale-105">
+                    Generate Retirement Wish ✨
+                </button>
+                <div id="wishOutput" class="mt-8 p-6 bg-white rounded-lg shadow-md text-gray-700 text-lg italic hidden">
+                    <p>Generating wish...</p>
+                </div>
+                <div id="wishLoading" class="mt-4 hidden text-violet-700 font-semibold">Loading...</div>
+            </div>
+        </section>
+
+        <!-- Closing Toast -->
+        <section class="text-center">
+            <h2 class="text-3xl font-bold text-violet-900 mb-4">Cheers to you, Steve!</h2>
+            <p class="max-w-3xl mx-auto text-lg text-gray-600 mb-8">
+                Your journey from upholsterer to a cornerstone of this company has been remarkable. On behalf of everyone here, thank you for your 29 years of dedication, your hard work, your insights, and your unwavering commitment. We will truly miss your presence, your stories, and your unique approach to sales.
+            </p>
+            <p class="text-2xl font-bold text-gray-800">We wish you a retirement filled with joy, relaxation, and happiness. Enjoy every single minute of it!</p>
+        </section>
+
+    </main>
+
+    <footer class="text-center py-6 bg-gray-800 text-gray-400 mt-12">
+        <p>A tribute to a legendary career. Happy Retirement, Steve!</p>
+    </footer>
+
+    <script>
+        // Number counting animation
+        const counters = document.querySelectorAll('[data-target]');
+        const speed = 200;
+
+        const animateCounters = () => {
+            counters.forEach(counter => {
+                const updateCount = () => {
+                    const target = +counter.getAttribute('data-target');
+                    const count = +counter.innerText.replace(/,/g, '');
+
+                    const inc = target / speed;
+
+                    if (count < target) {
+                        counter.innerText = Math.ceil(count + inc);
+                        setTimeout(updateCount, 10);
+                    } else {
+                        counter.innerText = target.toLocaleString();
+                    }
+                };
+                updateCount();
+            });
+        };
+        
+        // Intersection Observer to trigger animation on scroll
+        const observer = new IntersectionObserver((entries, observer) => {
+            entries.forEach(entry => {
+                if (entry.isIntersecting) {
+                    animateCounters();
+                    observer.unobserve(entry.target);
+                }
+            });
+        }, { threshold: 0.5 });
+        
+        document.querySelectorAll('.grid.text-center').forEach(section => {
+            observer.observe(section);
+        });
+
+        // Chart.js implementation for AOV
+        const ctx = document.getElementById('aovChart').getContext('2d');
+        const aovChart = new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels: ['Then', 'Now'],
+                datasets: [{
+                    label: 'Average Order Value (£)',
+                    data: [1150, 2300], // Approximate values from notes
+                    backgroundColor: [
+                        'rgba(139, 92, 246, 0.6)', // violet-500
+                        'rgba(67, 20, 160, 0.6)'  // violet-900
+                    ],
+                    borderColor: [
+                        'rgba(139, 92, 246, 1)',
+                        'rgba(67, 20, 160, 1)'
+                    ],
+                    borderWidth: 1
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        ticks: {
+                            callback: function(value, index, values) {
+                                return '£' + value;
+                            }
+                        }
+                    }
+                },
+                plugins: {
+                    legend: {
+                        display: false
+                    },
+                    tooltip: {
+                         callbacks: {
+                            label: function(context) {
+                                let label = context.dataset.label || '';
+                                if (label) {
+                                    label += ': ';
+                                }
+                                if (context.parsed.y !== null) {
+                                    label += new Intl.NumberFormat('en-GB', { style: 'currency', currency: 'GBP' }).format(context.parsed.y);
+                                }
+                                return label;
+                            }
+                        }
+                    }
+                }
+            }
+        });
+
+        // Gemini API Integration for Retirement Wish (Wisdom Corner removed)
+        const generateWishBtn = document.getElementById('generateWishBtn');
+        const wishKeywordsInput = document.getElementById('wishKeywordsInput');
+        const wishOutput = document.getElementById('wishOutput');
+        const wishLoading = document.getElementById('wishLoading');
+
+        generateWishBtn.addEventListener('click', async () => {
+            wishOutput.classList.add('hidden');
+            wishLoading.classList.remove('hidden');
+            wishOutput.innerHTML = '<p>Generating wish...</p>';
+
+            const keywords = wishKeywordsInput.value.trim();
+            const prompt = `Generate a heartfelt and personalized retirement wish for Steve Shribler, who is retiring after 29 years. Incorporate the following keywords/themes provided by the user: ${keywords || 'relaxation, new adventures, family time, well-deserved break'}. Focus on appreciation for his long career. Keep it concise and warm.`;
+
+            let chatHistory = [];
+            chatHistory.push({ role: "user", parts: [{ text: prompt }] });
+            const payload = { contents: chatHistory };
+            const apiKey = ""; 
+            const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`;
+
+            try {
+                const response = await fetch(apiUrl, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                const result = await response.json();
+                if (result.candidates && result.candidates.length > 0 &&
+                    result.candidates[0].content && result.candidates[0].content.parts &&
+                    result.candidates[0].content.parts.length > 0) {
+                    const text = result.candidates[0].content.parts[0].text;
+                    wishOutput.innerHTML = `<p>"${text}"</p>`;
+                } else {
+                    wishOutput.innerHTML = '<p>Could not generate wish. Please try again.</p>';
+                }
+            } catch (error) {
+                wishOutput.innerHTML = `<p>Error generating wish: ${error.message}</p>`;
+            } finally {
+                wishLoading.classList.add('hidden');
+                wishOutput.classList.remove('hidden');
+            }
+        });
+    </script>
+</body>
+</html>
