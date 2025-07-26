@@ -13,7 +13,7 @@
         import { getStorage, ref, uploadBytes, getDownloadURL } from "https://www.gstatic.com/firebasejs/10.0.0/firebase-storage.js";
 
         // Global Firebase variables (provided by Canvas, or default for local testing)
-        const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id'; 
+        // Correctly use firebaseConfig.projectId for appId
         const firebaseConfig = {
             apiKey: "AIzaSyCp9cu9ypBmM5k76fadVjC_AxF4t6PwIrY",
             authDomain: "steve-photo-upload.firebaseapp.com",
@@ -23,6 +23,7 @@
             appId: "1:367448808327:web:e5c5b6ef1ede05a7909122",
             measurementId: "G-PVKDTL0MHP"
         };
+        const appId = firebaseConfig.projectId; // Use project ID directly for consistency with rules
         const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null; 
 
         // Initialize Firebase
@@ -63,6 +64,7 @@
                 return;
             }
 
+            // Ensure the collection path matches your rules: artifacts/{appId}/media
             const q = query(collection(db, `artifacts/${appId}/media`), orderBy("timestamp", "desc"));
             onSnapshot(q, (snapshot) => {
                 mediaGallery.innerHTML = ''; // Clear current gallery
@@ -97,7 +99,7 @@
         // Handle Media Upload
         document.addEventListener('DOMContentLoaded', () => {
             const mediaUploadInput = document.getElementById('mediaUpload');
-            const mediaCaptionInput = document.getElementById('mediaCaption');
+            // const mediaCaptionInput = document.getElementById('mediaCaption'); // Removed
             const uploadMediaBtn = document.getElementById('uploadMediaBtn');
             const uploadStatus = document.getElementById('uploadStatus');
 
@@ -108,7 +110,7 @@
                 }
 
                 const file = mediaUploadInput.files[0];
-                const caption = mediaCaptionInput.value.trim();
+                // const caption = mediaCaptionInput.value.trim(); // Removed
 
                 if (!file) {
                     uploadStatus.textContent = 'Please select a file to upload.';
@@ -118,6 +120,7 @@
                 uploadStatus.textContent = 'Uploading...';
                 try {
                     const fileName = `${Date.now()}-${file.name}`;
+                    // Ensure the storage path matches your rules: artifacts/{appId}/media/{userId}/{fileName}
                     const storageRef = ref(storage, `artifacts/${appId}/media/${currentUserId}/${fileName}`);
                     
                     const snapshot = await uploadBytes(storageRef, file);
@@ -125,7 +128,7 @@
 
                     await addDoc(collection(db, `artifacts/${appId}/media`), {
                         url: downloadURL,
-                        caption: caption,
+                        // caption: caption, // Removed
                         uploaderId: currentUserId,
                         type: file.type,
                         timestamp: serverTimestamp() // Use server timestamp for consistency
@@ -133,7 +136,7 @@
 
                     uploadStatus.textContent = 'Upload successful!';
                     mediaUploadInput.value = ''; // Clear file input
-                    mediaCaptionInput.value = ''; // Clear caption input
+                    // mediaCaptionInput.value = ''; // Removed
                 } catch (error) {
                     console.error("Upload failed:", error);
                     uploadStatus.textContent = `Upload failed: ${error.message}`;
@@ -149,6 +152,7 @@
                 return;
             }
 
+            // Ensure the collection path matches your rules: artifacts/{appId}/wishes
             const q = query(collection(db, `artifacts/${appId}/wishes`), orderBy("timestamp", "desc"));
             onSnapshot(q, (snapshot) => {
                 wishesDisplayArea.innerHTML = ''; // Clear current wishes
@@ -160,10 +164,12 @@
                         const wishDiv = document.createElement('div');
                         wishDiv.className = 'bg-white p-4 rounded-lg shadow-sm mb-4 border-l-4 border-violet-400';
                         const timestamp = wish.timestamp ? new Date(wish.timestamp.toDate()).toLocaleString() : 'N/A';
-                        const uploaderSuffix = wish.uploaderId ? ` (${wish.uploaderId.substring(0, 8)}...)` : ''; // Show part of ID
+                        const fromText = wish.senderName ? `~ From ${wish.senderName}` : '~ From a well-wisher'; // Use senderName if available
+                        const uploaderSuffix = wish.uploaderId ? ` (${wish.uploaderId.substring(0, 8)}...)` : ''; 
+                        
                         wishDiv.innerHTML = `
                             <p class="text-gray-800 text-base italic mb-2">"${wish.message}"</p>
-                            <p class="text-gray-500 text-xs text-right">~ From a well-wisher${uploaderSuffix} on ${timestamp}</p>
+                            <p class="text-gray-500 text-xs text-right">${fromText}${uploaderSuffix} on ${timestamp}</p>
                         `;
                         wishesDisplayArea.appendChild(wishDiv);
                     });
@@ -177,6 +183,7 @@
         // Handle Personal Message Submission (now saves to Firestore)
         document.addEventListener('DOMContentLoaded', () => {
             const personalMessageInput = document.getElementById('personalMessageInput');
+            const personalSenderNameInput = document.getElementById('personalSenderNameInput'); // New input
             const submitPersonalMessageBtn = document.getElementById('submitPersonalMessageBtn');
             const personalMessageOutput = document.getElementById('personalMessageOutput'); // This is now for status messages
 
@@ -188,6 +195,8 @@
                 }
 
                 const message = personalMessageInput.value.trim();
+                const senderName = personalSenderNameInput.value.trim(); // Get sender name
+                
                 if (!message) {
                     personalMessageOutput.textContent = 'Please write a message before submitting.';
                     personalMessageOutput.classList.remove('hidden');
@@ -200,11 +209,13 @@
                 try {
                     await addDoc(collection(db, `artifacts/${appId}/wishes`), {
                         message: message,
+                        senderName: senderName, // Save sender name
                         uploaderId: currentUserId,
                         timestamp: serverTimestamp() // Use server timestamp
                     });
                     personalMessageOutput.textContent = 'Your wish has been submitted!';
-                    personalMessageInput.value = ''; // Clear input
+                    personalMessageInput.value = ''; // Clear message input
+                    personalSenderNameInput.value = ''; // Clear sender name input
                     // loadWishes() will auto-update the display
                 } catch (error) {
                     console.error("Error submitting wish:", error);
@@ -465,9 +476,10 @@
                     <div class="timeline-marker"></div> <!-- The circle -->
                     <h3 class="text-2xl font-bold text-violet-800 mb-2">The Early Days: Finding the Calling</h3>
                     <p class="text-sm text-gray-500 mb-4 font-medium">Apprenticeship & First Jobs</p>
-                    <div class="bg-white p-6 rounded-lg shadow-md">
-                        <p class="text-gray-700">So how did it all begin?<p class="text-gray-700">Well, our man&nbsp;Steve&nbsp;didn’t come out of the womb selling sofas— No, it all started when his dad—a tailor—had a friend in the furniture trade.&nbsp;Steve&nbsp;got to know him and thought,&nbsp;“Yeah, I can do this.”&nbsp;So he trained up as an&nbsp;upholsterer, which is basically furniture whispering. </p>
-<p class="text-gray-700">From there,&nbsp;Steve&nbsp;landed his first job at&nbsp;Beales of Poole—a classy place where the floor sold&nbsp;both furniture and electricals.&nbsp;Steve&nbsp;was on the furniture side, but was&nbsp;dangerously good&nbsp;at selling TVs too. That didn’t sit well with the electrical guys. Turns out, they didn’t appreciate him flogging tellies&nbsp;and&nbsp;the sofas to watch them from. </p>
+                    <div>
+                        <p class="text-gray-700">So how did it all begin?</p>
+                        <p class="text-gray-700">Well, our man&nbsp;Steve&nbsp;didn’t come out of the womb selling sofas— No, it all started when his dad—a tailor—had a friend in the furniture trade.&nbsp;Steve&nbsp;got to know him and thought,&nbsp;“Yeah, I can do this.”&nbsp;So he trained up as an&nbsp;upholsterer, which is basically furniture whispering. </p>
+                        <p class="text-gray-700">From there,&nbsp;Steve&nbsp;landed his first job at&nbsp;Beales of Poole—a classy place where the floor sold&nbsp;both furniture and electricals.&nbsp;Steve&nbsp;was on the furniture side, but was&nbsp;dangerously good&nbsp;at selling TVs too. That didn’t sit well with the electrical guys. Turns out, they didn’t appreciate him flogging tellies&nbsp;and&nbsp;the sofas to watch them from. </p>
                     </div>
                 </div>
 
@@ -476,9 +488,9 @@
                     <div class="timeline-marker"></div>
                     <h3 class="text-2xl font-bold text-violet-800 mb-2">London is Calling</h3>
                     <p class="text-sm text-gray-500 mb-4 font-medium">Moving to the Big City & TANDY Success</p>
-                    <div class="bg-white p-6 rounded-lg shadow-md">
+                    <div>
                         <p class="text-gray-700">Then love struck—Steve&nbsp;met his wife, moved to London, and started working for&nbsp;TANDY in Bexleyheath. He did so well there that they sent him to&nbsp;fix Croydon, and what did he do? Only went and&nbsp;doubled the store’s volume. How? By introducing a bold, new retail concept:&nbsp;“Selling stuff to customers.”&nbsp;Revolutionary. </p>
-<p class="text-gray-700">While working miracles in Croydon,&nbsp;Steve&nbsp;was headhunted by&nbsp;DFS—yes,&nbsp;actual headhunted, back when it didn’t just mean a dodgy message on LinkedIn. He impressed the recruiter so much, he got a bottle of&nbsp;Châteauneuf-du-Pape&nbsp;as a thank you.</p>
+                        <p class="text-gray-700">While working miracles in Croydon,&nbsp;Steve&nbsp;was headhunted by&nbsp;DFS—yes,&nbsp;actual headhunted, back when it didn’t just mean a dodgy message on LinkedIn. He impressed the recruiter so much, he got a bottle of&nbsp;Châteauneuf-du-Pape&nbsp;as a thank you.</p>
                     </div>
                 </div>
 
@@ -487,9 +499,9 @@
                     <div class="timeline-marker"></div>
                     <h3 class="text-2xl font-bold text-violet-800 mb-2">The DFS Era Begins</h3>
                     <p class="text-sm text-gray-500 mb-4 font-medium">Headhunted & The Sidcup Start</p>
-                    <div class="bg-white p-6 rounded-lg shadow-md">
+                    <div>
                         <p class="text-gray-700">Steve started at&nbsp;Sidcup, and the moment he got his first DFS pay packet, he ran to show his old boss—“Look! I’ve doubled my money!”&nbsp;&nbsp; </p>
-<p class="text-gray-700">After five years in Sidcup, he was asked to cover Croydon.&nbsp; — he soon realised...&nbsp;he was making more money!&nbsp;Why? Well, partly because&nbsp;Ali Mehmet and Roy Webb&nbsp;were still in Sidcup and selling like it was an Olympic sport. Ali even numbered his order pad from 1 to 10 every day—just to tick off how many sales he'd make. Steve&nbsp;thought,&nbsp;“Alright, let’s give that a go.”&nbsp;And sure enough, it worked! </p>
+                        <p class="text-gray-700">After five years in Sidcup, he was asked to cover Croydon.&nbsp; — he soon realised...&nbsp;he was making more money!&nbsp;Why? Well, partly because&nbsp;Ali Mehmet and Roy Webb&nbsp;were still in Sidcup and selling like it was an Olympic sport. Ali even numbered his order pad from 1 to 10 every day—just to tick off how many sales he'd make. Steve&nbsp;thought,&nbsp;“Alright, let’s give that a go.”&nbsp;And sure enough, it worked! </p>
                     </div>
                 </div>
                 
@@ -498,9 +510,9 @@
                     <div class="timeline-marker"></div>
                     <h3 class="text-2xl font-bold text-violet-800 mb-2">The OKR Chapter</h3>
                     <p class="text-sm text-gray-500 mb-4 font-medium">Record-Breaking</p>
-                    <div class="bg-white p-6 rounded-lg shadow-md">
+                    <div>
                         <p class="text-gray-700">Then came&nbsp;2011&nbsp;and the big one:&nbsp;OKR was opening. But you couldn’t just stroll in. No,&nbsp;Steve&nbsp;had to&nbsp;take a test. It was like DFS Hogwarts. Luckily,&nbsp;Christian Galloway&nbsp;gave the nod, and&nbsp;Steve&nbsp;walked in... and walked out&nbsp;top book on opening day.&nbsp; The store booked a casual&nbsp;£204K. Light work for&nbsp;Steve&nbsp;and his colleagues, but the best opening day we know of. </p>
-<p class="text-gray-700">He stayed at OKR for 9 years before returning to his roots in&nbsp;Sidcup—and according to him, it’s the nicest team he’s ever worked with. People want to support&nbsp;and help each other. Not like the&nbsp;“aggressive sharks”&nbsp;from the old days. And we believe him—because back in Croydon, one salesman literally&nbsp;punched him in the ribs&nbsp;just for standing at the front of the store. Another time, two blokes started a fight over who got to book a deal... and the manager&nbsp;broke it up, then booked the deal himself. Power move. </p>
+                        <p class="text-gray-700">He stayed at OKR for 9 years before returning to his roots in&nbsp;Sidcup—and according to him, it’s the nicest team he’s ever worked with. People want to support&nbsp;and help each other. Not like the&nbsp;“aggressive sharks”&nbsp;from the old days. And we believe him—because back in Croydon, one salesman literally&nbsp;punched him in the ribs&nbsp;just for standing at the front of the store. Another time, two blokes started a fight over who got to book a deal... and the manager&nbsp;broke it up, then booked the deal himself. Power move. </p>
                     </div>
                 </div>
 
@@ -509,10 +521,10 @@
                     <div class="timeline-marker"></div>
                     <h3 class="text-2xl font-bold text-violet-800 mb-2">Memorable Moments</h3>
                     <p class="text-sm text-gray-500 mb-4 font-medium">Personal & Professional Milestones</p>
-                    <div class="bg-white p-6 rounded-lg shadow-md">
+                    <div>
                         <p class="text-gray-700">A&nbsp;memorable&nbsp;year?&nbsp;Hard to choose, but probably&nbsp;2015. His eldest daughter got married, he sold his parents’ house, paid off his mortgage, and had the kind of peace most of us only find in a DFS recliner. </p>
-<p class="text-gray-700">There were other high points too: when&nbsp;Lord Kirkham bought back all the shares,&nbsp;Steve&nbsp;got enough for a&nbsp;new roof on his house.&nbsp;Stylish&nbsp;and&nbsp;leak-free. </p>
-<p class="text-gray-700">He got into&nbsp;the&nbsp;Millionaires Club, [what happens in Paris. stays in Paris] He won&nbsp;CIN,&nbsp;YAY!&nbsp;That got your daughter her wedding dress!&nbsp;And—fittingly—wrapped up his career by winning the&nbsp;Retail Values Award&nbsp;in his final month. Now that’s a mic drop.</p>
+                        <p class="text-gray-700">There were other high points too: when&nbsp;Lord Kirkham bought back all the shares,&nbsp;Steve&nbsp;got enough for a&nbsp;new roof on his house.&nbsp;Stylish&nbsp;and&nbsp;leak-free. </p>
+                        <p class="text-gray-700">He got into&nbsp;the&nbsp;Millionaires Club, [what happens in Paris. stays in Paris] He won&nbsp;CIN,&nbsp;YAY!&nbsp;That got your daughter her wedding dress!&nbsp;And—fittingly—wrapped up his career by winning the&nbsp;Retail Values Award&nbsp;in his final month. Now that’s a mic drop.</p>
                     </div>
                 </div>
 
@@ -547,17 +559,14 @@ Thank you for everything. And enjoy your well-deserved retirement—you’ve ear
                         </div>
                         <div class="award-card p-5 rounded-lg shadow-sm">
                             <h4 class="text-xl font-bold text-amber-600">⭐ RETAIL VALUES AWARD Winner</h4>
-                            <p class="text-600 mt-1">A final, prestigious award in his last month of service. A perfect ending to a stellar career.</p>
+                            <p class="text-gray-600 mt-1">A final, prestigious award in his last month of service. A perfect ending to a stellar career.</p>
                         </div>
                     </div>
                     
-                    <!-- New Picture(s) in a small frame (Removed the last one) -->
+                    <!-- New Picture(s) in a small frame -->
                     <div class="flex flex-col sm:flex-row items-center justify-center p-4 gap-6"> <!-- Flexbox to center images and add gap -->
                         <div class="border-4 border-violet-400 rounded-lg shadow-md overflow-hidden max-w-[180px] sm:max-w-[200px]"> <!-- Slightly smaller for balance -->
                             <img src="https://i.imgur.com/k1Tg6Ts.jpeg" alt="Steve at a DFS event" class="w-full h-auto object-cover">
-                        </div>
-                         <div class="border-4 border-violet-400 rounded-lg shadow-md overflow-hidden max-w-[250px] sm:max-w-[320px]"> <!-- More prominent, increased size further for second image -->
-                            <img src="https://i.imgur.com/goq7PXy.png" alt="Another achievement moment for Steve" class="w-full h-auto object-cover">
                         </div>
                     </div>
 
@@ -605,7 +614,6 @@ Thank you for everything. And enjoy your well-deserved retirement—you’ve ear
                     <p class="text-gray-600 mb-4">Share a photo or video memory of Steve from your own collection.</p>
                     
                     <input type="file" id="mediaUpload" accept="image/*,video/*" class="w-full p-2 border border-violet-300 rounded-lg shadow-sm focus:ring-violet-500 focus:border-violet-500 mb-3">
-                    <input type="text" id="mediaCaption" placeholder="Add a short caption..." class="w-full p-2 border border-violet-300 rounded-lg shadow-sm focus:ring-violet-500 focus:border-violet-500 mb-4">
                     <button id="uploadMediaBtn" class="bg-violet-600 hover:bg-violet-700 text-white font-bold py-2 px-4 rounded-full shadow-lg transition duration-300 ease-in-out transform hover:scale-105 btn-press">
                         Upload Media
                     </button>
@@ -660,6 +668,8 @@ Thank you for everything. And enjoy your well-deserved retirement—you’ve ear
                 <!-- Option 1: Write your own message -->
                 <div class="mb-8 p-6 bg-white rounded-lg shadow-md max-w-xl mx-auto">
                     <h3 class="text-xl font-bold text-violet-800 mb-4">Write Your Own Message</h3>
+                    <!-- Added From: input field -->
+                    <input type="text" id="personalSenderNameInput" class="w-full p-4 border border-violet-300 rounded-lg shadow-sm focus:ring-violet-500 focus:border-violet-500 mb-4" placeholder="From (Your Name/Team Name)">
                     <textarea id="personalMessageInput" class="w-full p-4 border border-violet-300 rounded-lg shadow-sm focus:ring-violet-500 focus:border-violet-500 mb-4" rows="5" placeholder="Type your personal message for Steve here..."></textarea>
                     <button id="submitPersonalMessageBtn" class="bg-violet-600 hover:bg-violet-700 text-white font-bold py-3 px-6 rounded-full shadow-lg transition duration-300 ease-in-out transform hover:scale-105 btn-press">
                         Submit Your Message
