@@ -5,6 +5,138 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Steve Schibler's Retirement</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Firebase SDKs - MAKE SURE THESE ARE THE LATEST VERSIONS IF TROUBLESHOOTING -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.0.0/firebase-app.js";
+        import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.0.0/firebase-auth.js";
+        import { getFirestore, collection, addDoc, onSnapshot, query, orderBy } from "https://www.gstatic.com/firebasejs/10.0.0/firebase-firestore.js";
+        import { getStorage, ref, uploadBytes, getDownloadURL } from "https://www.gstatic.com/firebasejs/10.0.0/firebase-storage.js";
+
+        // Global Firebase variables (provided by Canvas, or default for local testing)
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id'; // Use default for local testing
+        const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {
+            apiKey: "YOUR_FIREBASE_API_KEY", // Replace with your actual Firebase API Key for local testing
+            authDomain: "YOUR_FIREBASE_PROJECT_ID.firebaseapp.com",
+            projectId: "YOUR_FIREBASE_PROJECT_ID",
+            storageBucket: "YOUR_FIREBASE_PROJECT_ID.appspot.com",
+            messagingSenderId: "YOUR_MESSAGING_SENDER_ID",
+            appId: "YOUR_APP_ID"
+        };
+        const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
+
+        // Initialize Firebase
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const db = getFirestore(app);
+        const storage = getStorage(app);
+
+        let currentUserId = null;
+        let isAuthReady = false;
+
+        // Authenticate anonymously
+        onAuthStateChanged(auth, async (user) => {
+            if (user) {
+                currentUserId = user.uid;
+                document.getElementById('userIdDisplay').textContent = `Your User ID: ${currentUserId}`;
+                isAuthReady = true;
+                console.log("Authenticated as:", currentUserId);
+                // Load existing media once authenticated
+                loadMedia();
+            } else {
+                console.log("No user signed in, signing in anonymously...");
+                try {
+                    await signInAnonymously(auth);
+                } catch (error) {
+                    console.error("Anonymous sign-in failed", error);
+                    document.getElementById('userIdDisplay').textContent = `Authentication failed: ${error.message}`;
+                }
+            }
+        });
+
+        // Function to load and display media
+        const mediaGallery = document.getElementById('mediaGallery');
+        const loadMedia = () => {
+            if (!isAuthReady) {
+                console.warn("Auth not ready, cannot load media yet.");
+                return;
+            }
+
+            const q = query(collection(db, `artifacts/${appId}/media`), orderBy("timestamp", "desc"));
+            onSnapshot(q, (snapshot) => {
+                mediaGallery.innerHTML = ''; // Clear current gallery
+                snapshot.forEach((doc) => {
+                    const media = doc.data();
+                    const mediaElementDiv = document.createElement('div');
+                    mediaElementDiv.className = 'image-display-container'; // Use existing styling
+                    
+                    let mediaContent;
+                    if (media.type && media.type.startsWith('video/')) {
+                        mediaContent = `<video controls src="${media.url}" class="w-full h-auto object-cover"></video>`;
+                    } else {
+                        mediaContent = `<img src="${media.url}" alt="${media.caption || 'Uploaded media'}" class="w-full h-auto object-cover">`;
+                    }
+                    
+                    mediaElementDiv.innerHTML = `
+                        ${mediaContent}
+                        <p class="p-4 text-gray-700 text-sm max-w-md w-full mx-auto">${media.caption || 'No caption'}</p>
+                    `;
+                    mediaGallery.appendChild(mediaElementDiv);
+                });
+            }, (error) => {
+                console.error("Error fetching media:", error);
+                mediaGallery.innerHTML = `<p class="text-red-500">Error loading memories: ${error.message}</p>`;
+            });
+        };
+
+        // Handle Media Upload
+        document.addEventListener('DOMContentLoaded', () => {
+            const mediaUploadInput = document.getElementById('mediaUpload');
+            const mediaCaptionInput = document.getElementById('mediaCaption');
+            const uploadMediaBtn = document.getElementById('uploadMediaBtn');
+            const uploadStatus = document.getElementById('uploadStatus');
+
+            uploadMediaBtn.addEventListener('click', async () => {
+                if (!isAuthReady || !currentUserId) {
+                    uploadStatus.textContent = 'Please wait for authentication to complete.';
+                    return;
+                }
+
+                const file = mediaUploadInput.files[0];
+                const caption = mediaCaptionInput.value.trim();
+
+                if (!file) {
+                    uploadStatus.textContent = 'Please select a file to upload.';
+                    return;
+                }
+
+                uploadStatus.textContent = 'Uploading...';
+                try {
+                    const fileName = `${Date.now()}-${file.name}`;
+                    const storageRef = ref(storage, `artifacts/${appId}/media/${currentUserId}/${fileName}`);
+                    
+                    const snapshot = await uploadBytes(storageRef, file);
+                    const downloadURL = await getDownloadURL(snapshot.ref);
+
+                    await addDoc(collection(db, `artifacts/${appId}/media`), {
+                        url: downloadURL,
+                        caption: caption,
+                        uploaderId: currentUserId,
+                        type: file.type,
+                        timestamp: new Date()
+                    });
+
+                    uploadStatus.textContent = 'Upload successful!';
+                    mediaUploadInput.value = ''; // Clear file input
+                    mediaCaptionInput.value = ''; // Clear caption input
+                } catch (error) {
+                    console.error("Upload failed:", error);
+                    uploadStatus.textContent = `Upload failed: ${error.message}`;
+                }
+            });
+        });
+
+        // Other JS logic for counters
+    </script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700;800&display=swap" rel="stylesheet">
     <!-- Chosen Palette: Royal Purple (Light Violet Background, Deep Violet Text/Accents, Gold Highlights) -->
@@ -12,19 +144,48 @@
     <!-- Visualization & Content Choices: 
         - Career Path: Goal: Show progression. Method: Vertical Timeline (HTML/CSS). Interaction: Scroll-based discovery. Justification: Clear, chronological storytelling.
         - Key Stats (Years, Sales): Goal: Emphasize impact. Method: Animated Number Counters (JS). Interaction: On-scroll animation. Justification: Creates a dynamic and impressive feel.
-        - AOV Growth: Goal: Visualize business impact. Method: Bar Chart (Chart.js). Interaction: Tooltips on hover. Justification: A simple, clear way to show a quantitative comparison.
+        - AOV Growth: Goal: Visualize business Impact. Method: Bar Chart (Chart.js). Interaction: Tooltips on hover. Justification: A simple, clear way to show a quantitative comparison.
         - Anecdotes & Awards: Goal: Highlight key moments. Method: Styled Cards (HTML/CSS). Interaction: Hover effects. Justification: Breaks up text and makes key stories easily digestible.
-        - LLM Features: Goal: Enhance engagement and personalization. Method: Text generation via Gemini API. Interaction: Button clicks, text input. Justification: Adds a unique, AI-powered element to the tribute.
-        - Image Gallery: Goal: Showcase visual memories. Method: Responsive Image Grid (HTML/CSS). Justification: Provides a dedicated space for photos, replacing the wisdom section for a more visual tribute.
+        - LLM Features: Goal: Enhance engagement and personalised. Method: Text generation via Gemini API (optional). Interaction: Button clicks, text input. Justification: Adds a unique, AI-powered element to the tribute, now with a choice for manual input.
+        - Media Gallery: Goal: Showcase visual memories and allow user uploads. Method: Responsive Image/Video Display (HTML/CSS) + Firebase for upload/display. Justification: Provides a dedicated space for dynamic content and user contribution, enhancing engagement and personalization.
+        - Fun Fact: Goal: Add a humorous, contextual anecdote. Method: Dedicated text section. Justification: Provides a lighthearted, memorable detail about Steve's career start.
+        - Quirky Animations: Goal: Add visual flair and engagement. Method: CSS @keyframes for subtle entrance and emphasis. Justification: Enhances interactivity and personality without distracting.
+        - Retirement Gifts: Goal: Add a fun, symbolic section for well wishes. Method: Grid of animated "gift" cards with Unicode icons. Interaction: Hover effects. Justification: Creates a playful, celebratory element.
+        - Celebratory Confetti: Goal: Provide a final celebratory visual. Method: CSS/JS generated elements for a burst effect. Justification: Adds a "wow" factor to the closing.
         - Library/Method Confirmation: Chart.js for the chart. All other visuals are structured HTML/CSS with Tailwind. -->
     <!-- CONFIRMATION: NO SVG graphics used. NO Mermaid JS used. -->
     <style>
+        html, body {
+            min-height: 100vh; /* Ensure full viewport height is covered */
+            height: 100%; /* Important for fixed/absolute positioning context */
+            position: relative; /* Context for absolutely positioned children */
+        }
         body {
             font-family: 'Inter', sans-serif;
             background-color: #f8f9fa; /* Keeping a very light neutral background */
         }
-        .timeline-item::before {
-            content: '';
+        /* Updated timeline styling for perfect alignment */
+        .timeline-container {
+            position: relative;
+            max-width: 2xl; /* Matches mx-auto max-w-2xl */
+            margin-left: auto;
+            margin-right: auto;
+            padding-left: 32px; /* This creates the space for the line and markers */
+        }
+        .timeline-line-vertical {
+            position: absolute;
+            left: 17px; /* 16px (half of 32px padding) + 1px (half of line width) */
+            top: 0;
+            bottom: 0;
+            width: 4px;
+            background-color: #ddd6fe; /* Violet-200 */
+        }
+        .timeline-event {
+            position: relative;
+            padding-left: 30px; /* Space between marker and content box */
+            margin-bottom: 3rem; /* Space between events */
+        }
+        .timeline-marker {
             position: absolute;
             width: 20px;
             height: 20px;
@@ -32,18 +193,10 @@
             background-color: #ffffff;
             border: 4px solid #4c1d95; /* Violet-800 */
             top: 0;
-            left: -10px;
+            left: 7px; /* 17px (center of line) - 10px (half of marker width) = 7px */
             z-index: 1;
         }
-        .timeline-line {
-            position: absolute;
-            left: 0;
-            top: 0;
-            bottom: 0;
-            width: 4px;
-            background-color: #ddd6fe; /* Violet-200 */
-            transform: translateX(-50%);
-        }
+
         .award-card {
             background-color: #fff;
             border-left: 5px solid #d97706; /* Amber-600 for a gold-like accent */
@@ -67,13 +220,138 @@
                 height: 350px;
             }
         }
+        /* Responsive image/video container for consistency in gallery */
+        .image-display-container {
+            width: 100%;
+            max-width: 600px; /* Adjust as needed */
+            margin-left: auto;
+            margin-right: auto;
+            border-radius: 0.5rem; /* rounded-lg */
+            box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1); /* shadow-md */
+            overflow: hidden;
+        }
+        .image-display-container img, .image-display-container video {
+            width: 100%;
+            height: auto;
+            display: block;
+        }
+
+        /* Animations */
+        @keyframes fadeInSlideUp {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .animate-fadeInSlideUp {
+            animation: fadeInSlideUp 0.8s ease-out forwards;
+        }
+
+        @keyframes popIn {
+            0% { opacity: 0; transform: scale(0.5); }
+            80% { opacity: 1; transform: scale(1.1); }
+            100% { transform: scale(1); }
+        }
+        .animate-popIn {
+            animation: popIn 0.6s ease-out forwards;
+        }
+
+        @keyframes jiggle {
+            0%, 100% { transform: rotate(0deg); }
+            25% { transform: rotate(-1deg); }
+            75% { transform: rotate(1deg); }
+        }
+        .animate-jiggle {
+            animation: jiggle 0.3s ease-in-out 3; /* Jiggle 3 times */
+        }
+
+        /* Button press effect */
+        .btn-press:active {
+            transform: scale(0.98);
+            box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+
+        /* Gift box animation */
+        @keyframes bounceIn {
+            0% { opacity: 0; transform: scale(0.3); }
+            50% { opacity: 1; transform: scale(1.05); }
+            70% { transform: scale(0.9); }
+            100% { transform: scale(1); }
+        }
+        .gift-box.animated {
+            animation: bounceIn 0.8s ease-out forwards;
+        }
+
+        /* Confetti effect */
+        .confetti {
+            position: absolute;
+            width: 8px;
+            height: 8px;
+            background-color: #d97706; /* Amber */
+            opacity: 0;
+            border-radius: 50%;
+            animation: confetti-fall 2s ease-out forwards;
+            z-index: 10; /* Ensure confetti is on top */
+        }
+        .confetti:nth-child(2n) { background-color: #8b5cf6; /* Violet */ }
+        .confetti:nth-child(3n) { background-color: #facc15; /* Yellow */ }
+
+        @keyframes confetti-fall {
+            0% { transform: translateY(0) rotate(0deg); opacity: 1; }
+            50% { opacity: 1; }
+            100% { transform: translateY(200px) rotate(720deg); opacity: 0; }
+        }
+
+        /* Background emojis/illustrations */
+        .background-elements-container {
+            position: fixed; /* Keep fixed for continuous background effect */
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%; /* Use 100% height for fixed elements */
+            overflow: hidden; /* Hide elements outside the viewport */
+            pointer-events: none; /* Do not block clicks on elements beneath them */
+            z-index: 0; /* Changed from -1 to 0 */
+            opacity: 0.15; /* Increased opacity for visibility */
+        }
+
+        .bg-emoji {
+            position: absolute;
+            font-size: 4rem; /* Slightly larger emoji size */
+            animation: floatAndRotate 10s infinite ease-in-out alternate; /* Slightly faster, gentler animation */
+            filter: none; /* Removed grayscale filter to add color */
+        }
+
+        /* Specific positioning and delay for variety */
+        .sofa-emoji-1 { top: 10%; left: 5%; animation-delay: 0s; }
+        .sofa-emoji-2 { top: 30%; right: 15%; animation-delay: 2s; }
+        .sofa-emoji-3 { bottom: 20%; left: 25%; animation-delay: 4s; }
+        .sofa-emoji-4 { top: 50%; right: 5%; animation-delay: 6s; }
+        .chair-emoji-1 { top: 5%; left: 40%; animation-delay: 10s; }
+        .chair-emoji-2 { bottom: 30%; left: 10%; animation-delay: 12s; }
+
+        @keyframes floatAndRotate {
+            0% { transform: translateY(0) translateX(0) rotate(0deg); }
+            25% { transform: translateY(-20px) translateX(10px) rotate(8deg); } /* Increased movement */
+            50% { transform: translateY(0px) translateX(0px) rotate(0deg); }
+            75% { transform: translateY(20px) translateX(-10px) rotate(-8deg); } /* Increased movement */
+            100% { transform: translateY(0) translateX(0) rotate(0deg); }
+        }
     </style>
 </head>
 <body class="text-gray-800">
 
+    <!-- Background Elements Container -->
+    <div class="background-elements-container">
+        <span class="bg-emoji sofa-emoji-1">🛋️</span>
+        <span class="bg-emoji sofa-emoji-2">🛋️</span>
+        <span class="bg-emoji sofa-emoji-3">🛋️</span>
+        <span class="bg-emoji sofa-emoji-4">🛋️</span>
+        <span class="bg-emoji chair-emoji-1">🪑</span>
+        <span class="bg-emoji chair-emoji-2">🪑</span>
+    </div>
+
     <header class="bg-violet-900 text-white text-center py-12 shadow-lg">
-        <h1 class="text-4xl md:text-5xl font-extrabold tracking-tight">Steve Schibler's Retirement</h1>
-        <p class="mt-4 text-xl text-violet-200">Celebrating a Remarkable 29-Year Journey</p>
+        <h1 class="text-4xl md:text-5xl font-extrabold tracking-tight animate-fadeInSlideUp">Steve Schibler's Retirement</h1>
+        <p class="mt-4 text-xl text-violet-200 animate-fadeInSlideUp" style="animation-delay: 0.2s;">Celebrating a Remarkable 29-Year Journey</p>
     </header>
 
     <main class="container mx-auto px-4 sm:px-6 lg:px-8 py-12">
@@ -86,74 +364,113 @@
             </p>
         </section>
 
+        <!-- New Image Section (between intro and key stats) -->
+        <div class="mb-16 text-center">
+            <div class="image-display-container">
+                <img src="https://i.imgur.com/qkoMMI8.png" alt="Steve with colleagues" class="w-full h-auto object-cover">
+            </div>
+        </div>
+
         <!-- Key Stats Section -->
-        <section class="grid grid-cols-1 md:grid-cols-3 gap-8 text-center mb-20">
+        <section class="grid grid-cols-1 md:grid-cols-3 gap-8 text-center mb-20" id="key-stats-section">
             <div class="bg-white p-6 rounded-lg shadow-md">
                 <p class="text-5xl font-extrabold text-violet-900" data-target="29">0</p>
                 <p class="text-lg font-medium text-gray-500 mt-2">Years with the Company</p>
             </div>
             <div class="bg-white p-6 rounded-lg shadow-md">
-                <p class="text-5xl font-extrabold text-violet-900">£<span data-target="204">0</span>k</p>
-                <p class="text-lg font-medium text-gray-500 mt-2">Booked on OKR Opening Day</p>
+                <p class="text-5xl font-extrabold text-violet-900" data-target="6720">0</p>
+                <p class="text-lg font-medium text-gray-500 mt-2">Lunch Breaks Enjoyed</p>
             </div>
             <div class="bg-white p-6 rounded-lg shadow-md">
-                <p class="text-5xl font-extrabold text-violet-900"><span data-target="2">0</span>x</p>
-                <p class="text-lg font-medium text-gray-500 mt-2">AOV Growth Witnessed</p>
+                <p class="text-5xl font-extrabold text-violet-900">£2.5M+</p>
+                <p class="text-lg font-medium text-gray-500 mt-2">Best Year</p>
             </div>
         </section>
 
         <!-- Career Timeline Section -->
         <section class="mb-20">
             <h2 class="text-3xl font-bold text-violet-900 text-center mb-12">Steve's Career Timeline</h2>
-            <div class="relative max-w-2xl mx-auto pl-8">
-                <div class="timeline-line"></div>
+            <div class="timeline-container max-w-2xl mx-auto"> <!-- Outer container for positioning -->
+                <div class="timeline-line-vertical"></div> <!-- The actual vertical line -->
                 
                 <!-- Timeline Item 1: The Beginning -->
-                <div class="mb-12 relative timeline-item">
+                <div class="timeline-event">
+                    <div class="timeline-marker"></div> <!-- The circle -->
                     <h3 class="text-2xl font-bold text-violet-800 mb-2">The Early Days: Finding the Calling</h3>
                     <p class="text-sm text-gray-500 mb-4 font-medium">Apprenticeship & First Jobs</p>
                     <div class="bg-white p-6 rounded-lg shadow-md">
-                        <p class="text-gray-700">Following in his tailor father's footsteps, but with a twist, Steve began his journey as an apprentice upholsterer. He landed his first job at <strong>Beales of Poole</strong>, where in true Steve style, he sold not just furniture but electricals too, much to the surprise of his colleagues! He then moved to London, excelled at <strong>TANDY</strong>, and famously doubled the volume at the Croydon branch by introducing the radical "concept of selling to customers."</p>
+                        <p class="text-gray-700">So how did it all begin?
+Well, our man&nbsp;Steve&nbsp;didn’t come out of the womb selling sofas— No, it all started when his dad—a tailor—had a friend in the furniture trade.&nbsp;Steve&nbsp;got to know him and thought,&nbsp;“Yeah, I can do this.”&nbsp;So he trained up as an&nbsp;upholsterer, which is basically furniture whispering.
+From there,&nbsp;Steve&nbsp;landed his first job at&nbsp;Beales of Poole—a classy place where the floor sold&nbsp;both furniture and electricals.&nbsp;Steve&nbsp;was on the furniture side, but was&nbsp;dangerously good&nbsp;at selling TVs too. That didn’t sit well with the electrical guys. Turns out, they didn’t appreciate him flogging tellies&nbsp;and&nbsp;the sofas to watch them from. </p>
                     </div>
                 </div>
 
-                <!-- Timeline Item 2: Joining DFS -->
-                <div class="mb-12 relative timeline-item">
+                <!-- New Timeline Item: London is Calling -->
+                <div class="timeline-event">
+                    <div class="timeline-marker"></div>
+                    <h3 class="text-2xl font-bold text-violet-800 mb-2">London is Calling</h3>
+                    <p class="text-sm text-gray-500 mb-4 font-medium">Moving to the Big City & TANDY Success</p>
+                    <div class="bg-white p-6 rounded-lg shadow-md">
+                        <p class="text-gray-700">Then love struck—Steve&nbsp;met his wife, moved to London, and started working for&nbsp;TANDY in Bexleyheath. He did so well there that they sent him to&nbsp;fix Croydon, and what did he do? Only went and&nbsp;doubled the store’s volume. How? By introducing a bold, new retail concept:&nbsp;“Selling stuff to customers.”&nbsp;Revolutionary.
+While working miracles in Croydon,&nbsp;Steve&nbsp;was headhunted by&nbsp;DFS—yes,&nbsp;actual headhunted, back when it didn’t just mean a dodgy message on LinkedIn. He impressed the recruiter so much, he got a bottle of&nbsp;Châteauneuf-du-Pape&nbsp;as a thank you.</p>
+                    </div>
+                </div>
+
+                <!-- Timeline Item 2: Joining DFS (now adjusted for new item) -->
+                <div class="timeline-event">
+                    <div class="timeline-marker"></div>
                     <h3 class="text-2xl font-bold text-violet-800 mb-2">The DFS Era Begins</h3>
                     <p class="text-sm text-gray-500 mb-4 font-medium">Headhunted & The Sidcup Start</p>
                     <div class="bg-white p-6 rounded-lg shadow-md">
-                        <p class="text-gray-700">Success didn't go unnoticed. Steve was headhunted by DFS and started his journey in Sidcup, immediately doubling his income. It was here he learned from the competitive "sharks" like Ali Mehmet, adopting winning strategies like numbering his order pad to hit daily targets. He also witnessed the "wild west" of retail, a far cry from the supportive atmosphere we have today!</p>
+                        <p class="text-gray-700">Steve started at&nbsp;Sidcup, and the moment he got his first DFS pay packet, he ran to show his old boss—“Look! I’ve doubled my money!”&nbsp;&nbsp;
+After five years in Sidcup, he was asked to cover Croydon.&nbsp; — he soon realised...&nbsp;he was making more money!&nbsp;Why? Well, partly because&nbsp;Ali Mehmet and Roy Webb&nbsp;were still in Sidcup and selling like it was an Olympic sport. Ali even numbered his order pad from 1 to 10 every day—just to tick off how many sales he'd make. Steve&nbsp;thought,&nbsp;“Alright, let’s give that a go.”&nbsp;And sure enough, it worked! </p>
                     </div>
                 </div>
                 
                 <!-- Timeline Item 3: OKR & Memorable Deals -->
-                <div class="mb-12 relative timeline-item">
+                <div class="timeline-event">
+                    <div class="timeline-marker"></div>
                     <h3 class="text-2xl font-bold text-violet-800 mb-2">The OKR Chapter</h3>
-                    <p class="text-sm text-gray-500 mb-4 font-medium">Record-Breaking & The Lagos Call</p>
+                    <p class="text-sm text-gray-500 mb-4 font-medium">Record-Breaking</p>
                     <div class="bg-white p-6 rounded-lg shadow-md">
-                        <p class="text-gray-700">In 2011, Steve moved to the new OKR store and made history, finishing as "top book" on an incredible <strong>£204k opening day</strong>. This was also the scene of one of his most memorable deals: a £6.5k order taken over the phone from a customer in Lagos, Nigeria, with a cash deposit delivered by a shipper. A testament to his adaptability and sales prowess.</p>
+                        <p class="text-gray-700">Then came&nbsp;2011&nbsp;and the big one:&nbsp;OKR was opening. But you couldn’t just stroll in. No,&nbsp;Steve&nbsp;had to&nbsp;take a test. It was like DFS Hogwarts. Luckily,&nbsp;Christian Galloway&nbsp;gave the nod, and&nbsp;Steve&nbsp;walked in... and walked out&nbsp;top book on opening day.&nbsp; The store booked a casual&nbsp;£204K. Light work for&nbsp;Steve&nbsp;and his colleagues, but the best opening day we know of.
+He stayed at OKR for 9 years before returning to his roots in&nbsp;Sidcup—and according to him, it’s the nicest team he’s ever worked with. People want to support&nbsp;and help each other. Not like the&nbsp;“aggressive sharks”&nbsp;from the old days. And we believe him—because back in Croydon, one salesman literally&nbsp;punched him in the ribs&nbsp;just for standing at the front of the store. Another time, two blokes started a fight over who got to book a deal... and the manager&nbsp;broke it up, then booked the deal himself. Power move. </p>
                     </div>
                 </div>
 
-                <!-- Timeline Item 4: Legacy -->
-                <div class="relative timeline-item">
-                    <h3 class="text-2xl font-bold text-violet-800 mb-2">The Legacy: Awards & Well-Deserved Success</h3>
-                    <p class="text-sm text-gray-500 mb-4 font-medium">Sidcup Return & Final Flourish</p>
+                <!-- New Timeline Item: Memorable Moments -->
+                <div class="timeline-event">
+                    <div class="timeline-marker"></div>
+                    <h3 class="text-2xl font-bold text-violet-800 mb-2">Memorable Moments</h3>
+                    <p class="text-sm text-gray-500 mb-4 font-medium">Personal & Professional Milestones</p>
                     <div class="bg-white p-6 rounded-lg shadow-md">
-                        <p class="text-gray-700">Returning to Sidcup 5 years ago, Steve found a wonderful, supportive team. His hard work paid off personally, with a new roof thanks to company shares and a mortgage-free life in 2015. He was recognized with trips to the <strong>Millionaires Club</strong> in Paris, a heartwarming <strong>CIN award</strong> win that bought his daughter's wedding dress, and a final, fitting <strong>RETAIL VALUES AWARD</strong> in his last month. What a finish!</p>
+                        <p class="text-gray-700">A&nbsp;memorable&nbsp;year?&nbsp;Hard to choose, but probably&nbsp;2015. His eldest daughter got married, he sold his parents’ house, paid off his mortgage, and had the kind of peace most of us only find in a DFS recliner.
+There were other high points too: when&nbsp;Lord Kirkham bought back all the shares,&nbsp;Steve&nbsp;got enough for a&nbsp;new roof on his house.&nbsp;Stylish&nbsp;and&nbsp;leak-free.
+He got into&nbsp;the&nbsp;Millionaires Club, [what happens in Paris. stays in Paris] He won&nbsp;CIN,&nbsp;YAY!&nbsp;That got your daughter her wedding dress!&nbsp;And—fittingly—wrapped up his career by winning the&nbsp;Retail Values Award&nbsp;in his final month. Now that’s a mic drop.</p>
+                    </div>
+                </div>
+
+                <!-- Timeline Item 4: Thank You from everyone! -->
+                <div class="timeline-event">
+                    <div class="timeline-marker"></div>
+                    <h3 class="2xl font-bold text-violet-800 mb-2">Thank You from everyone!</h3>
+                    <p class="text-sm text-gray-500 mb-4 font-medium">A Final Word</p>
+                    <div class="bg-white p-6 rounded-lg shadow-md">
+                        <p class="text-gray-700">Steve, we salute you. You’ve weathered sales battles, bruised ribs, booming weekends, weird customer stories, and some truly competitive teammates—and you’ve done it all with humour, heart, and have remained genuine throughout.
+Thank you for everything. And enjoy your well-deserved retirement—you’ve earned every drop of it (including that Châteauneuf-du-Pape).</p>
                     </div>
                 </div>
             </div>
         </section>
         
-        <!-- Highlights & AOV Chart Section -->
+        <!-- Highlights & Impact Section -->
         <section class="bg-violet-50 py-16 rounded-lg shadow-inner mb-20">
             <div class="container mx-auto px-4">
                 <h2 class="text-3xl font-bold text-violet-900 text-center mb-12">Career Highlights & Impact</h2>
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-8 items-center">
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-8 items-center"> <!-- Changed to 2 columns for awards and images -->
                     
                     <!-- Greatest Hits -->
-                    <div class="space-y-6">
+                    <div class="space-y-6 w-full max-w-lg">
                         <div class="award-card p-5 rounded-lg shadow-sm">
                             <h4 class="text-xl font-bold text-amber-600">🏆 Millionaire's Club Inductee</h4>
                             <p class="text-gray-600 mt-1">Celebrated success in Paris. As Steve says, "what happens in Paris stays in Paris!"</p>
@@ -168,11 +485,13 @@
                         </div>
                     </div>
                     
-                    <!-- AOV Chart -->
-                    <div>
-                        <h4 class="text-xl font-bold text-center text-violet-900 mb-4">Growth in Average Order Value</h4>
-                        <div class="chart-container bg-white p-4 rounded-lg shadow-md w-full max-w-lg mx-auto h-80 relative">
-                             <canvas id="aovChart"></canvas>
+                    <!-- New Picture(s) in a small frame -->
+                    <div class="flex flex-col sm:flex-row items-center justify-center p-4 gap-6"> <!-- Flexbox to center images and add gap -->
+                        <div class="border-4 border-violet-400 rounded-lg shadow-md overflow-hidden max-w-[180px] sm:max-w-[200px]"> <!-- Slightly smaller for balance -->
+                            <img src="https://i.imgur.com/k1Tg6Ts.jpeg" alt="Steve at a DFS event" class="w-full h-auto object-cover">
+                        </div>
+                         <div class="border-4 border-violet-400 rounded-lg shadow-md overflow-hidden max-w-[250px] sm:max-w-[320px]"> <!-- More prominent, increased size further for second image -->
+                            <img src="https://i.imgur.com/goq7PXy.png" alt="Another achievement moment for Steve" class="w-full h-auto object-cover">
                         </div>
                     </div>
 
@@ -180,18 +499,85 @@
             </div>
         </section>
 
-        <!-- Photo Gallery Section -->
+        <!-- Fun Fact Section (Moved) -->
+        <section class="bg-violet-50 py-16 rounded-lg shadow-inner mb-20" id="fun-fact-section">
+            <div class="container mx-auto px-4 text-center">
+                <h2 class="text-3xl font-bold text-violet-900 mb-4">💡 Fun Fact! 💡</h2>
+                <p class="max-w-3xl mx-auto text-lg text-gray-700">
+                    Just two months ago, **Beales of Poole**—Steve’s very first workplace—closed its last remaining store, right around when he handed in his retirement notice. Coincidence? We don’t think so. Beales probably said, “If Steve’s calling it a day... what’s the point of carrying on?”
+                </p>
+            </div>
+        </section>
+
+        <!-- Media Gallery Section -->
         <section class="bg-violet-50 py-16 rounded-lg shadow-inner mb-20">
             <div class="container mx-auto px-4 text-center">
-                <h2 class="text-3xl font-bold text-violet-900 mb-8">📸 Memories Through the Years 📸</h2>
+                <h2 class="text-3xl font-bold text-violet-900 mb-8">📸 Video & Photo Memories 🎥</h2>
                 <p class="max-w-3xl mx-auto text-lg text-gray-600 mb-12">
-                    A collection of moments from Steve's incredible journey. This image captures the spirit, camaraderie, and memorable events throughout his 29 years with us.
+                    A collection of dynamic moments from Steve's incredible journey. This section brings to life the spirit, camaraderie, and memorable events throughout his 29 years with us.
                 </p>
-                <div class="grid grid-cols-1 place-items-center gap-6">
-                    <!-- Only one image, centered -->
-                    <div class="bg-white rounded-lg shadow-md overflow-hidden max-w-md w-full">
-                        <img src="https://i.imgur.com/xGNQVoM.jpeg" alt="Steve ready for retirement" class="w-full h-auto object-cover">
-                        <p class="p-4 text-gray-700 text-sm">Steve, ready for a well-deserved retirement!</p>
+                <div class="grid grid-cols-1 place-items-center gap-6 mb-8">
+                    <!-- Video Embed from Imgur -->
+                    <div class="image-display-container">
+                        <video controls autoplay muted loop playsinline class="w-full h-auto object-cover">
+                            <source src="https://i.imgur.com/JEheDTR.mp4" type="video/mp4">
+                            Your browser does not support the video tag.
+                        </video>
+                    </div>
+                    <p class="p-4 text-gray-700 text-sm max-w-md w-full">A special video memory of Steve!</p>
+                    
+                    <!-- Added picture underneath the video -->
+                    <div class="image-display-container mt-6">
+                        <img src="https://i.imgur.com/xGNQVoM.jpeg" alt="Steve ready for retirement">
+                    </div>
+                    <p class="p-4 text-gray-700 text-sm max-w-md w-full">Another memorable moment with Steve!</p>
+                </div>
+
+                <!-- New Upload Section -->
+                <div class="bg-white p-6 rounded-lg shadow-md max-w-xl mx-auto border border-violet-200">
+                    <h3 class="text-xl font-bold text-violet-800 mb-4">Upload Your Own Memories!</h3>
+                    <p class="text-gray-600 mb-4">Share a photo or video memory of Steve from your own collection.</p>
+                    
+                    <input type="file" id="mediaUpload" accept="image/*,video/*" class="w-full p-2 border border-violet-300 rounded-lg shadow-sm focus:ring-violet-500 focus:border-violet-500 mb-3">
+                    <input type="text" id="mediaCaption" placeholder="Add a short caption..." class="w-full p-2 border border-violet-300 rounded-lg shadow-sm focus:ring-violet-500 focus:border-violet-500 mb-4">
+                    <button id="uploadMediaBtn" class="bg-violet-600 hover:bg-violet-700 text-white font-bold py-2 px-4 rounded-full shadow-lg transition duration-300 ease-in-out transform hover:scale-105 btn-press">
+                        Upload Media
+                    </button>
+                    <div id="uploadStatus" class="mt-4 text-sm text-gray-700"></div>
+                    <p class="text-xs text-gray-500 mt-2">Your User ID: <span id="userIdDisplay">Loading...</span></p>
+                </div>
+
+                 <!-- Live Media Feed (where uploaded content will appear) -->
+                <div id="mediaGallery" class="grid grid-cols-1 md:grid-cols-2 place-items-center gap-6 mt-12">
+                    <!-- Uploaded media will appear here -->
+                    <p class="text-gray-500">No user-submitted memories yet. Be the first to share!</p>
+                </div>
+
+            </div>
+        </section>
+
+        <!-- New Section: Your Retirement Gifts -->
+        <section class="bg-yellow-50 py-16 rounded-lg shadow-inner mb-20">
+            <div class="container mx-auto px-4 text-center">
+                <h2 class="text-3xl font-bold text-yellow-800 mb-8">🎁 Your Retirement Gifts (from us!) 🎁</h2>
+                <p class="max-w-3xl mx-auto text-lg text-gray-600 mb-12">
+                    While we can't wrap up all our appreciation, here are some symbolic gifts for your well-deserved retirement!
+                </p>
+                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
+                    <div class="bg-white p-6 rounded-lg shadow-md gift-box">
+                        <p class="text-6xl mb-4">🏖️</p>
+                        <h3 class="text-xl font-bold text-gray-800 mb-2">Endless Relaxation</h3>
+                        <p class="text-gray-600">A lifetime supply of lie-ins, beach days, and zero alarm clocks.</p>
+                    </div>
+                    <div class="bg-white p-6 rounded-lg shadow-md gift-box">
+                        <p class="text-6xl mb-4">🏨</p>
+                        <h3 class="text-xl font-bold text-gray-800 mb-2">Premier Inn Adventures</h3>
+                        <p class="text-gray-600">Premier Inn gift vouchers to explore all those places you've dreamed of.</p>
+                    </div>
+                    <div class="bg-white p-6 rounded-lg shadow-md gift-box">
+                        <p class="text-6xl mb-4">👨‍👩‍👧‍👦</p>
+                        <h3 class="xl font-bold text-gray-800 mb-2">Cherished Family Moments</h3>
+                        <p class="text-gray-600">An abundance of quality time with loved ones, making new memories.</p>
                     </div>
                 </div>
             </div>
@@ -202,26 +588,30 @@
             <div class="container mx-auto px-4 text-center">
                 <h2 class="text-3xl font-bold text-violet-900 mb-4">✨ Craft a Retirement Wish for Steve ✨</h2>
                 <p class="max-w-3xl mx-auto text-lg text-gray-600 mb-8">
-                    Want to send Steve a personalized retirement message but need a little inspiration? Enter a few keywords about what you'd like to include, and our AI will help you craft a heartfelt wish!
+                    Want to send Steve a **personalised** retirement message but need a little inspiration? You can write your own message below.
                 </p>
-                <textarea id="wishKeywordsInput" class="w-full max-w-xl p-4 border border-violet-300 rounded-lg shadow-sm focus:ring-violet-500 focus:border-violet-500 mb-4" rows="3" placeholder="e.g., golf, relaxation, family time, well-deserved break"></textarea>
-                <button id="generateWishBtn" class="bg-violet-600 hover:bg-violet-700 text-white font-bold py-3 px-6 rounded-full shadow-lg transition duration-300 ease-in-out transform hover:scale-105">
-                    Generate Retirement Wish ✨
-                </button>
-                <div id="wishOutput" class="mt-8 p-6 bg-white rounded-lg shadow-md text-gray-700 text-lg italic hidden">
-                    <p>Generating wish...</p>
+                
+                <!-- Option 1: Write your own message -->
+                <div class="mb-8 p-6 bg-white rounded-lg shadow-md max-w-xl mx-auto">
+                    <h3 class="text-xl font-bold text-violet-800 mb-4">Write Your Own Message</h3>
+                    <textarea id="personalMessageInput" class="w-full p-4 border border-violet-300 rounded-lg shadow-sm focus:ring-violet-500 focus:border-violet-500 mb-4" rows="5" placeholder="Type your personal message for Steve here..."></textarea>
+                    <button id="submitPersonalMessageBtn" class="bg-violet-600 hover:bg-violet-700 text-white font-bold py-3 px-6 rounded-full shadow-lg transition duration-300 ease-in-out transform hover:scale-105 btn-press">
+                        Submit Your Message
+                    </button>
+                    <div id="personalMessageOutput" class="mt-4 p-4 text-gray-700 text-lg italic hidden"></div>
                 </div>
-                <div id="wishLoading" class="mt-4 hidden text-violet-700 font-semibold">Loading...</div>
+
             </div>
         </section>
 
         <!-- Closing Toast -->
-        <section class="text-center">
+        <section class="text-center relative overflow-hidden" id="closing-toast-section">
             <h2 class="text-3xl font-bold text-violet-900 mb-4">Cheers to you, Steve!</h2>
             <p class="max-w-3xl mx-auto text-lg text-gray-600 mb-8">
-                Your journey from upholsterer to a cornerstone of this company has been remarkable. On behalf of everyone here, thank you for your 29 years of dedication, your hard work, your insights, and your unwavering commitment. We will truly miss your presence, your stories, and your unique approach to sales.
+                Your journey from upholsterer to a **legend** of this company has been remarkable. On behalf of everyone here, thank you for your 29 years of dedication, your hard work, your insights, and your unwavering commitment. We will truly miss your presence, your stories, and your unique approach to sales.
             </p>
             <p class="text-2xl font-bold text-gray-800">We wish you a retirement filled with joy, relaxation, and happiness. Enjoy every single minute of it!</p>
+            <div id="confetti-container" class="absolute inset-0 pointer-events-none"></div>
         </section>
 
     </main>
@@ -254,115 +644,125 @@
             });
         };
         
-        // Intersection Observer to trigger animation on scroll
-        const observer = new IntersectionObserver((entries, observer) => {
+        // Intersection Observer to trigger animation on scroll for key stats and fun fact
+        const statsObserver = new IntersectionObserver((entries, observer) => {
             entries.forEach(entry => {
                 if (entry.isIntersecting) {
-                    animateCounters();
+                    entry.target.querySelectorAll('[data-target]').forEach(el => el.classList.add('animate-popIn'));
+                    animateCounters(); // Trigger number animation
                     observer.unobserve(entry.target);
                 }
             });
         }, { threshold: 0.5 });
         
-        document.querySelectorAll('.grid.text-center').forEach(section => {
-            observer.observe(section);
-        });
+        statsObserver.observe(document.getElementById('key-stats-section'));
 
-        // Chart.js implementation for AOV
-        const ctx = document.getElementById('aovChart').getContext('2d');
-        const aovChart = new Chart(ctx, {
-            type: 'bar',
-            data: {
-                labels: ['Then', 'Now'],
-                datasets: [{
-                    label: 'Average Order Value (£)',
-                    data: [1150, 2300], // Approximate values from notes
-                    backgroundColor: [
-                        'rgba(139, 92, 246, 0.6)', // violet-500
-                        'rgba(67, 20, 160, 0.6)'  // violet-900
-                    ],
-                    borderColor: [
-                        'rgba(139, 92, 246, 1)',
-                        'rgba(67, 20, 160, 1)'
-                    ],
-                    borderWidth: 1
-                }]
-            },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                scales: {
-                    y: {
-                        beginAtZero: true,
-                        ticks: {
-                            callback: function(value, index, values) {
-                                return '£' + value;
-                            }
-                        }
-                    }
-                },
-                plugins: {
-                    legend: {
-                        display: false
-                    },
-                    tooltip: {
-                         callbacks: {
-                            label: function(context) {
-                                let label = context.dataset.label || '';
-                                if (label) {
-                                    label += ': ';
-                                }
-                                if (context.parsed.y !== null) {
-                                    label += new Intl.NumberFormat('en-GB', { style: 'currency', currency: 'GBP' }).format(context.parsed.y);
-                                }
-                                return label;
-                            }
-                        }
-                    }
+        const funFactObserver = new IntersectionObserver((entries, observer) => {
+            entries.forEach(entry => {
+                if (entry.isIntersecting) {
+                    entry.target.classList.add('animate-jiggle');
+                    observer.unobserve(entry.target);
                 }
-            }
-        });
+            });
+        }, { threshold: 0.8 }); // Trigger when 80% of the section is visible
 
-        // Gemini API Integration for Retirement Wish (Wisdom Corner removed)
-        const generateWishBtn = document.getElementById('generateWishBtn');
-        const wishKeywordsInput = document.getElementById('wishKeywordsInput');
-        const wishOutput = document.getElementById('wishOutput');
-        const wishLoading = document.getElementById('wishLoading');
+        funFactObserver.observe(document.getElementById('fun-fact-section'));
 
-        generateWishBtn.addEventListener('click', async () => {
-            wishOutput.classList.add('hidden');
-            wishLoading.classList.remove('hidden');
-            wishOutput.innerHTML = '<p>Generating wish...</p>';
-
-            const keywords = wishKeywordsInput.value.trim();
-            const prompt = `Generate a heartfelt and personalized retirement wish for Steve Shribler, who is retiring after 29 years. Incorporate the following keywords/themes provided by the user: ${keywords || 'relaxation, new adventures, family time, well-deserved break'}. Focus on appreciation for his long career. Keep it concise and warm.`;
-
-            let chatHistory = [];
-            chatHistory.push({ role: "user", parts: [{ text: prompt }] });
-            const payload = { contents: chatHistory };
-            const apiKey = ""; 
-            const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`;
-
-            try {
-                const response = await fetch(apiUrl, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(payload)
-                });
-                const result = await response.json();
-                if (result.candidates && result.candidates.length > 0 &&
-                    result.candidates[0].content && result.candidates[0].content.parts &&
-                    result.candidates[0].content.parts.length > 0) {
-                    const text = result.candidates[0].content.parts[0].text;
-                    wishOutput.innerHTML = `<p>"${text}"</p>`;
-                } else {
-                    wishOutput.innerHTML = '<p>Could not generate wish. Please try again.</p>';
+        // Intersection Observer for Gift Boxes
+        const giftBoxObserver = new IntersectionObserver((entries, observer) => {
+            entries.forEach(entry => {
+                if (entry.isIntersecting) {
+                    entry.target.querySelectorAll('.gift-box').forEach((box, index) => {
+                        setTimeout(() => {
+                            box.classList.add('animated');
+                        }, index * 100); // Stagger animation
+                    });
+                    observer.unobserve(entry.target);
                 }
-            } catch (error) {
-                wishOutput.innerHTML = `<p>Error generating wish: ${error.message}</p>`;
-            } finally {
-                wishLoading.classList.add('hidden');
-                wishOutput.classList.remove('hidden');
+            });
+        }, { threshold: 0.3 }); // Trigger when 30% of the section is visible
+
+        // The grid containing the gift boxes doesn't have an ID, so we need to select it more generally.
+        // Assuming it's the first grid with 'gap-8' and is a direct child of a section.
+        const giftSectionGrid = document.querySelector('section.bg-yellow-50 .grid.gap-8');
+        if (giftSectionGrid) {
+            giftBoxObserver.observe(giftSectionGrid);
+        }
+
+
+        // Confetti effect on closing toast
+        const confettiContainer = document.getElementById('confetti-container');
+        const closingToastObserver = new IntersectionObserver((entries, observer) => {
+            entries.forEach(entry => {
+                if (entry.isIntersecting) {
+                    // Generate confetti
+                    for (let i = 0; i < 50; i++) {
+                        const confetti = document.createElement('div');
+                        confetti.classList.add('confetti');
+                        confetti.style.left = `${Math.random() * 100}%`;
+                        confetti.style.top = `${Math.random() * 50}%`;
+                        confetti.style.animationDelay = `${Math.random() * 0.5}s`;
+                        confetti.style.animationDuration = `${2 + Math.random() * 1}s`;
+                        confettiContainer.appendChild(confetti);
+                    }
+                    observer.unobserve(entry.target);
+                }
+            });
+        }, { threshold: 0.7 }); // Trigger when 70% of the section is visible
+
+        closingToastObserver.observe(document.getElementById('closing-toast-section'));
+
+
+        // Chart.js implementation (no longer present in the HTML)
+        // const ctx = document.getElementById('aovChart').getContext('2d');
+        // const aovChart = new Chart(ctx, {
+        //     type: 'bar',
+        //     data: {
+        //         labels: ['Then', 'Now'],
+        //         datasets: [{
+        //             label: 'Average Order Value (£)',
+        //             data: [1150, 2300], // Approximate values from notes
+        //             backgroundColor: [
+        //                 'rgba(139, 92, 246, 0.6)', // violet-500
+        //                 'rgba(67, 20, 160, 0.6)'  // violet-900
+        //             ],
+        //             borderColor: [
+        //                 'rgba(139, 92, 246, 1)',
+        //                 'rgba(67, 20, 160, 1)'
+        //             ],
+        //             borderWidth: 1
+        //         }]
+        //     },
+        //     options: {
+        //         responsive: true,
+        //         maintainAspectRatio: false,
+        //         scales: {
+        //             y: {
+        //                 beginAtZero: true,
+        //                 ticks: {
+        //                     callback: function(value, index, values) {
+        //                         return '£' + value;
+        //                     }
+        //                 }
+        //             }
+        //         }
+        //     }
+        // });
+
+        // Personal Message only logic (AI generation removed)
+        const personalMessageInput = document.getElementById('personalMessageInput');
+        const submitPersonalMessageBtn = document.getElementById('submitPersonalMessageBtn');
+        const personalMessageOutput = document.getElementById('personalMessageOutput');
+
+        submitPersonalMessageBtn.addEventListener('click', () => {
+            const message = personalMessageInput.value.trim();
+            if (message) {
+                personalMessageOutput.innerHTML = `<p>"${message}"</p>`;
+                personalMessageOutput.classList.remove('hidden');
+                personalMessageInput.value = ''; // Clear input after submission
+            } else {
+                personalMessageOutput.innerHTML = '<p>Please write a message before submitting.</p>';
+                personalMessageOutput.classList.remove('hidden');
             }
         });
     </script>
