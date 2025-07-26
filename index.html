@@ -9,21 +9,21 @@
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.0.0/firebase-app.js";
         import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.0.0/firebase-auth.js";
-        import { getFirestore, collection, addDoc, onSnapshot, query, orderBy } from "https://www.gstatic.com/firebasejs/10.0.0/firebase-firestore.js";
+        import { getFirestore, collection, addDoc, onSnapshot, query, orderBy, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.0.0/firebase-firestore.js";
         import { getStorage, ref, uploadBytes, getDownloadURL } from "https://www.gstatic.com/firebasejs/10.0.0/firebase-storage.js";
 
         // Global Firebase variables (provided by Canvas, or default for local testing)
-        const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id'; // Use default for local testing
-        const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id'; 
+        const firebaseConfig = {
             apiKey: "AIzaSyCp9cu9ypBmM5k76fadVjC_AxF4t6PwIrY",
-    authDomain: "steve-photo-upload.firebaseapp.com",
-    projectId: "steve-photo-upload",
-    storageBucket: "steve-photo-upload.firebasestorage.app",
-    messagingSenderId: "367448808327",
-    appId: "1:367448808327:web:e5c5b6ef1ede05a7909122",
-    measurementId: "G-PVKDTL0MHP"
+            authDomain: "steve-photo-upload.firebaseapp.com",
+            projectId: "steve-photo-upload",
+            storageBucket: "steve-photo-upload.appspot.com", // Corrected storageBucket to firebaseapp.com format, or use .firebasestorage.app as provided
+            messagingSenderId: "367448808327",
+            appId: "1:367448808327:web:e5c5b6ef1ede05a7909122",
+            measurementId: "G-PVKDTL0MHP"
         };
-        const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
+        const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initialAuthToken : null;
 
         // Initialize Firebase
         const app = initializeApp(firebaseConfig);
@@ -43,6 +43,7 @@
                 console.log("Authenticated as:", currentUserId);
                 // Load existing media once authenticated
                 loadMedia();
+                loadWishes(); // Load wishes once authenticated
             } else {
                 console.log("No user signed in, signing in anonymously...");
                 try {
@@ -65,27 +66,31 @@
             const q = query(collection(db, `artifacts/${appId}/media`), orderBy("timestamp", "desc"));
             onSnapshot(q, (snapshot) => {
                 mediaGallery.innerHTML = ''; // Clear current gallery
-                snapshot.forEach((doc) => {
-                    const media = doc.data();
-                    const mediaElementDiv = document.createElement('div');
-                    mediaElementDiv.className = 'image-display-container'; // Use existing styling
-                    
-                    let mediaContent;
-                    if (media.type && media.type.startsWith('video/')) {
-                        mediaContent = `<video controls src="${media.url}" class="w-full h-auto object-cover"></video>`;
-                    } else {
-                        mediaContent = `<img src="${media.url}" alt="${media.caption || 'Uploaded media'}" class="w-full h-auto object-cover">`;
-                    }
-                    
-                    mediaElementDiv.innerHTML = `
-                        ${mediaContent}
-                        <p class="p-4 text-gray-700 text-sm max-w-md w-full mx-auto">${media.caption || 'No caption'}</p>
-                    `;
-                    mediaGallery.appendChild(mediaElementDiv);
-                });
+                if (snapshot.empty) {
+                    mediaGallery.innerHTML = '<p class="text-gray-500 md:col-span-2">No user-submitted memories yet. Be the first to share!</p>';
+                } else {
+                    snapshot.forEach((doc) => {
+                        const media = doc.data();
+                        const mediaElementDiv = document.createElement('div');
+                        mediaElementDiv.className = 'image-display-container'; // Use existing styling
+                        
+                        let mediaContent;
+                        if (media.type && media.type.startsWith('video/')) {
+                            mediaContent = `<video controls src="${media.url}" class="w-full h-auto object-cover"></video>`;
+                        } else {
+                            mediaContent = `<img src="${media.url}" alt="${media.caption || 'Uploaded media'}" class="w-full h-auto object-cover">`;
+                        }
+                        
+                        mediaElementDiv.innerHTML = `
+                            ${mediaContent}
+                            <p class="p-4 text-gray-700 text-sm max-w-md w-full mx-auto">${media.caption || 'No caption'}</p>
+                        `;
+                        mediaGallery.appendChild(mediaElementDiv);
+                    });
+                }
             }, (error) => {
                 console.error("Error fetching media:", error);
-                mediaGallery.innerHTML = `<p class="text-red-500">Error loading memories: ${error.message}</p>`;
+                mediaGallery.innerHTML = `<p class="text-red-500 md:col-span-2">Error loading memories: ${error.message}</p>`;
             });
         };
 
@@ -123,7 +128,7 @@
                         caption: caption,
                         uploaderId: currentUserId,
                         type: file.type,
-                        timestamp: new Date()
+                        timestamp: serverTimestamp() // Use server timestamp for consistency
                     });
 
                     uploadStatus.textContent = 'Upload successful!';
@@ -136,7 +141,77 @@
             });
         });
 
-        // Other JS logic for counters
+        // Function to load and display wishes
+        const wishesDisplayArea = document.getElementById('wishesDisplayArea');
+        const loadWishes = () => {
+            if (!isAuthReady) {
+                console.warn("Auth not ready, cannot load wishes yet.");
+                return;
+            }
+
+            const q = query(collection(db, `artifacts/${appId}/wishes`), orderBy("timestamp", "desc"));
+            onSnapshot(q, (snapshot) => {
+                wishesDisplayArea.innerHTML = ''; // Clear current wishes
+                if (snapshot.empty) {
+                    wishesDisplayArea.innerHTML = '<p class="text-gray-500 text-center">No wishes submitted yet. Be the first!</p>';
+                } else {
+                    snapshot.forEach((doc) => {
+                        const wish = doc.data();
+                        const wishDiv = document.createElement('div');
+                        wishDiv.className = 'bg-white p-4 rounded-lg shadow-sm mb-4 border-l-4 border-violet-400';
+                        const timestamp = wish.timestamp ? new Date(wish.timestamp.toDate()).toLocaleString() : 'N/A';
+                        const uploaderSuffix = wish.uploaderId ? ` (${wish.uploaderId.substring(0, 8)}...)` : ''; // Show part of ID
+                        wishDiv.innerHTML = `
+                            <p class="text-gray-800 text-base italic mb-2">"${wish.message}"</p>
+                            <p class="text-gray-500 text-xs text-right">~ From a well-wisher${uploaderSuffix} on ${timestamp}</p>
+                        `;
+                        wishesDisplayArea.appendChild(wishDiv);
+                    });
+                }
+            }, (error) => {
+                console.error("Error fetching wishes:", error);
+                wishesDisplayArea.innerHTML = `<p class="text-red-500 text-center">Error loading wishes: ${error.message}</p>`;
+            });
+        };
+
+        // Handle Personal Message Submission (now saves to Firestore)
+        document.addEventListener('DOMContentLoaded', () => {
+            const personalMessageInput = document.getElementById('personalMessageInput');
+            const submitPersonalMessageBtn = document.getElementById('submitPersonalMessageBtn');
+            const personalMessageOutput = document.getElementById('personalMessageOutput'); // This is now for status messages
+
+            submitPersonalMessageBtn.addEventListener('click', async () => {
+                if (!isAuthReady || !currentUserId) {
+                    personalMessageOutput.textContent = 'Please wait for authentication to complete.';
+                    personalMessageOutput.classList.remove('hidden');
+                    return;
+                }
+
+                const message = personalMessageInput.value.trim();
+                if (!message) {
+                    personalMessageOutput.textContent = 'Please write a message before submitting.';
+                    personalMessageOutput.classList.remove('hidden');
+                    return;
+                }
+
+                personalMessageOutput.textContent = 'Submitting wish...';
+                personalMessageOutput.classList.remove('hidden');
+
+                try {
+                    await addDoc(collection(db, `artifacts/${appId}/wishes`), {
+                        message: message,
+                        uploaderId: currentUserId,
+                        timestamp: serverTimestamp() // Use server timestamp
+                    });
+                    personalMessageOutput.textContent = 'Your wish has been submitted!';
+                    personalMessageInput.value = ''; // Clear input
+                    // loadWishes() will auto-update the display
+                } catch (error) {
+                    console.error("Error submitting wish:", error);
+                    personalMessageOutput.textContent = `Failed to submit wish: ${error.message}`;
+                }
+            });
+        });
     </script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700;800&display=swap" rel="stylesheet">
@@ -157,34 +232,33 @@
     <!-- CONFIRMATION: NO SVG graphics used. NO Mermaid JS used. -->
     <style>
         html, body {
-            min-height: 100vh; /* Ensure full viewport height is covered */
-            height: 100%; /* Important for fixed/absolute positioning context */
-            position: relative; /* Context for absolutely positioned children */
+            min-height: 100vh;
+            height: 100%;
+            position: relative;
         }
         body {
             font-family: 'Inter', sans-serif;
-            background-color: #f8f9fa; /* Keeping a very light neutral background */
+            background-color: #f8f9fa;
         }
-        /* Updated timeline styling for perfect alignment */
         .timeline-container {
             position: relative;
-            max-width: 2xl; /* Matches mx-auto max-w-2xl */
+            max-width: 2xl;
             margin-left: auto;
             margin-right: auto;
-            padding-left: 32px; /* This creates the space for the line and markers */
+            padding-left: 32px;
         }
         .timeline-line-vertical {
             position: absolute;
-            left: 17px; /* 16px (half of 32px padding) + 1px (half of line width) */
+            left: 17px;
             top: 0;
             bottom: 0;
             width: 4px;
-            background-color: #ddd6fe; /* Violet-200 */
+            background-color: #ddd6fe;
         }
         .timeline-event {
             position: relative;
-            padding-left: 30px; /* Space between marker and content box */
-            margin-bottom: 3rem; /* Space between events */
+            padding-left: 30px;
+            margin-bottom: 3rem;
         }
         .timeline-marker {
             position: absolute;
@@ -192,15 +266,15 @@
             height: 20px;
             border-radius: 50%;
             background-color: #ffffff;
-            border: 4px solid #4c1d95; /* Violet-800 */
+            border: 4px solid #4c1d95;
             top: 0;
-            left: 7px; /* 17px (center of line) - 10px (half of marker width) = 7px */
+            left: 7px;
             z-index: 1;
         }
 
         .award-card {
             background-color: #fff;
-            border-left: 5px solid #d97706; /* Amber-600 for a gold-like accent */
+            border-left: 5px solid #d97706;
             transition: transform 0.3s ease, box-shadow 0.3s ease;
         }
         .award-card:hover {
@@ -221,14 +295,13 @@
                 height: 350px;
             }
         }
-        /* Responsive image/video container for consistency in gallery */
         .image-display-container {
             width: 100%;
-            max-width: 600px; /* Adjust as needed */
+            max-width: 600px;
             margin-left: auto;
             margin-right: auto;
-            border-radius: 0.5rem; /* rounded-lg */
-            box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1); /* shadow-md */
+            border-radius: 0.5rem;
+            box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
             overflow: hidden;
         }
         .image-display-container img, .image-display-container video {
@@ -237,7 +310,6 @@
             display: block;
         }
 
-        /* Animations */
         @keyframes fadeInSlideUp {
             from { opacity: 0; transform: translateY(20px); }
             to { opacity: 1; transform: translateY(0); }
@@ -261,16 +333,14 @@
             75% { transform: rotate(1deg); }
         }
         .animate-jiggle {
-            animation: jiggle 0.3s ease-in-out 3; /* Jiggle 3 times */
+            animation: jiggle 0.3s ease-in-out 3;
         }
 
-        /* Button press effect */
         .btn-press:active {
             transform: scale(0.98);
             box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.1);
         }
 
-        /* Gift box animation */
         @keyframes bounceIn {
             0% { opacity: 0; transform: scale(0.3); }
             50% { opacity: 1; transform: scale(1.05); }
@@ -281,47 +351,43 @@
             animation: bounceIn 0.8s ease-out forwards;
         }
 
-        /* Confetti effect */
-        .confetti {
-            position: absolute;
-            width: 8px;
-            height: 8px;
-            background-color: #d97706; /* Amber */
-            opacity: 0;
-            border-radius: 50%;
-            animation: confetti-fall 2s ease-out forwards;
-            z-index: 10; /* Ensure confetti is on top */
-        }
-        .confetti:nth-child(2n) { background-color: #8b5cf6; /* Violet */ }
-        .confetti:nth-child(3n) { background-color: #facc15; /* Yellow */ }
-
         @keyframes confetti-fall {
             0% { transform: translateY(0) rotate(0deg); opacity: 1; }
             50% { opacity: 1; }
             100% { transform: translateY(200px) rotate(720deg); opacity: 0; }
         }
+        .confetti {
+            position: absolute;
+            width: 8px;
+            height: 8px;
+            background-color: #d97706;
+            opacity: 0;
+            border-radius: 50%;
+            animation: confetti-fall 2s ease-out forwards;
+            z-index: 10;
+        }
+        .confetti:nth-child(2n) { background-color: #8b5cf6; }
+        .confetti:nth-child(3n) { background-color: #facc15; }
 
-        /* Background emojis/illustrations */
         .background-elements-container {
-            position: fixed; /* Keep fixed for continuous background effect */
+            position: fixed;
             top: 0;
             left: 0;
             width: 100%;
-            height: 100%; /* Use 100% height for fixed elements */
-            overflow: hidden; /* Hide elements outside the viewport */
-            pointer-events: none; /* Do not block clicks on elements beneath them */
-            z-index: 0; /* Changed from -1 to 0 */
-            opacity: 0.15; /* Increased opacity for visibility */
+            height: 100%;
+            overflow: hidden;
+            pointer-events: none;
+            z-index: 0;
+            opacity: 0.15;
         }
 
         .bg-emoji {
             position: absolute;
-            font-size: 4rem; /* Slightly larger emoji size */
-            animation: floatAndRotate 10s infinite ease-in-out alternate; /* Slightly faster, gentler animation */
-            filter: none; /* Removed grayscale filter to add color */
+            font-size: 4rem;
+            animation: floatAndRotate 10s infinite ease-in-out alternate;
+            filter: none;
         }
 
-        /* Specific positioning and delay for variety */
         .sofa-emoji-1 { top: 10%; left: 5%; animation-delay: 0s; }
         .sofa-emoji-2 { top: 30%; right: 15%; animation-delay: 2s; }
         .sofa-emoji-3 { bottom: 20%; left: 25%; animation-delay: 4s; }
@@ -331,9 +397,9 @@
 
         @keyframes floatAndRotate {
             0% { transform: translateY(0) translateX(0) rotate(0deg); }
-            25% { transform: translateY(-20px) translateX(10px) rotate(8deg); } /* Increased movement */
+            25% { transform: translateY(-20px) translateX(10px) rotate(8deg); }
             50% { transform: translateY(0px) translateX(0px) rotate(0deg); }
-            75% { transform: translateY(20px) translateX(-10px) rotate(-8deg); } /* Increased movement */
+            75% { transform: translateY(20px) translateX(-10px) rotate(-8deg); }
             100% { transform: translateY(0) translateX(0) rotate(0deg); }
         }
     </style>
