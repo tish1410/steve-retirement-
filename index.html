@@ -83,9 +83,12 @@
                             mediaContent = `<img src="${media.url}" alt="${media.caption || 'Uploaded media'}" class="w-full h-auto object-cover">`;
                         }
                         
+                        // Only add caption if it exists
+                        const captionHtml = media.caption ? `<p class="p-4 text-gray-700 text-sm max-w-md w-full mx-auto">${media.caption}</p>` : '';
+
                         mediaElementDiv.innerHTML = `
                             ${mediaContent}
-                            <p class="p-4 text-gray-700 text-sm max-w-md w-full mx-auto">${media.caption || 'No caption'}</p>
+                            ${captionHtml}
                         `;
                         mediaGallery.appendChild(mediaElementDiv);
                     });
@@ -605,7 +608,7 @@ Thank you for everything. And enjoy your well-deserved retirement—you’ve ear
                     <div class="image-display-container mt-6">
                         <img src="https://i.imgur.com/xGNQVoM.jpeg" alt="Steve ready for retirement">
                     </div>
-                    <p class="p-4 text-gray-700 text-sm max-w-md w-full">Another memorable moment with Steve!</p>
+                    <p class="p-4 text-gray-700 text-sm max-w-md w-full"></p>
                 </div>
 
                 <!-- New Upload Section -->
