@@ -218,23 +218,7 @@
             });
         });
     </script>
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700;800&display=swap" rel="stylesheet">
-    <!-- Chosen Palette: Royal Purple (Light Violet Background, Deep Violet Text/Accents, Gold Highlights) -->
-    <!-- Application Structure Plan: A single-page, scrolling interactive story celebrating Steve's career. The structure follows a chronological timeline, interspersed with highlighted "Greatest Hits" in a card-based format and a dynamic chart for data visualization. This narrative structure is more engaging for a personal tribute than a rigid dashboard, allowing users to journey through Steve's career milestones intuitively. -->
-    <!-- Visualization & Content Choices: 
-        - Career Path: Goal: Show progression. Method: Vertical Timeline (HTML/CSS). Interaction: Scroll-based discovery. Justification: Clear, chronological storytelling.
-        - Key Stats (Years, Sales): Goal: Emphasize impact. Method: Animated Number Counters (JS). Interaction: On-scroll animation. Justification: Creates a dynamic and impressive feel.
-        - AOV Growth: Goal: Visualize business Impact. Method: Bar Chart (Chart.js). Interaction: Tooltips on hover. Justification: A simple, clear way to show a quantitative comparison.
-        - Anecdotes & Awards: Goal: Highlight key moments. Method: Styled Cards (HTML/CSS). Interaction: Hover effects. Justification: Breaks up text and makes key stories easily digestible.
-        - LLM Features: Goal: Enhance engagement and personalised. Method: Text generation via Gemini API (optional). Interaction: Button clicks, text input. Justification: Adds a unique, AI-powered element to the tribute, now with a choice for manual input.
-        - Media Gallery: Goal: Showcase visual memories and allow user uploads. Method: Responsive Image/Video Display (HTML/CSS) + Firebase for upload/display. Justification: Provides a dedicated space for dynamic content and user contribution, enhancing engagement and personalization.
-        - Fun Fact: Goal: Add a humorous, contextual anecdote. Method: Dedicated text section. Justification: Provides a lighthearted, memorable detail about Steve's career start.
-        - Quirky Animations: Goal: Add visual flair and engagement. Method: CSS @keyframes for subtle entrance and emphasis. Justification: Enhances interactivity and personality without distracting.
-        - Retirement Gifts: Goal: Add a fun, symbolic section for well wishes. Method: Grid of animated "gift" cards with Unicode icons. Interaction: Hover effects. Justification: Creates a playful, celebratory element.
-        - Celebratory Confetti: Goal: Provide a final celebratory visual. Method: CSS/JS generated elements for a burst effect. Justification: Adds a "wow" factor to the closing.
-        - Library/Method Confirmation: Chart.js for the chart. All other visuals are structured HTML/CSS with Tailwind. -->
-    <!-- CONFIRMATION: NO SVG graphics used. NO Mermaid JS used. -->
     <style>
         html, body {
             min-height: 100vh;
@@ -285,20 +269,6 @@
         .award-card:hover {
             transform: translateY(-5px);
             box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
-        }
-        .chart-container {
-            position: relative;
-            width: 100%;
-            max-width: 600px;
-            margin-left: auto;
-            margin-right: auto;
-            height: 300px;
-            max-height: 400px;
-        }
-        @media (min-width: 768px) {
-            .chart-container {
-                height: 350px;
-            }
         }
         .image-display-container {
             width: 100%;
@@ -845,4 +815,6 @@ Thank you for everything. And enjoy your well-deserved retirement—you’ve ear
     </script>
 </body>
 </html>
+
+
 
