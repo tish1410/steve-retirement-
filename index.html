@@ -18,12 +18,12 @@
             apiKey: "AIzaSyCp9cu9ypBmM5k76fadVjC_AxF4t6PwIrY",
             authDomain: "steve-photo-upload.firebaseapp.com",
             projectId: "steve-photo-upload",
-            storageBucket: "steve-photo-upload.firebasestorage.app", // CORRECTED THIS LINE
+            storageBucket: "steve-photo-upload.firebasestorage.app",
             messagingSenderId: "367448808327",
             appId: "1:367448808327:web:e5c5b6ef1ede05a7909122",
             measurementId: "G-PVKDTL0MHP"
         };
-        const appId = firebaseConfig.projectId; // Use project ID directly for consistency with rules
+        const appId = firebaseConfig.projectId;
         const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null; 
 
         // Initialize Firebase
@@ -44,7 +44,7 @@
                 console.log("Authenticated as:", currentUserId);
                 // Load existing media once authenticated
                 loadMedia();
-                loadWishes(); // Load wishes once authenticated
+                loadWishes();
             } else {
                 console.log("No user signed in, signing in anonymously...");
                 try {
@@ -64,17 +64,16 @@
                 return;
             }
 
-            // Ensure the collection path matches your rules: artifacts/{appId}/media
             const q = query(collection(db, `artifacts/${appId}/media`), orderBy("timestamp", "desc"));
             onSnapshot(q, (snapshot) => {
-                mediaGallery.innerHTML = ''; // Clear current gallery
+                mediaGallery.innerHTML = '';
                 if (snapshot.empty) {
                     mediaGallery.innerHTML = '<p class="text-gray-500 md:col-span-2">No user-submitted memories yet. Be the first to share!</p>';
                 } else {
                     snapshot.forEach((doc) => {
                         const media = doc.data();
                         const mediaElementDiv = document.createElement('div');
-                        mediaElementDiv.className = 'image-display-container'; // Use existing styling
+                        mediaElementDiv.className = 'image-display-container';
                         
                         let mediaContent;
                         if (media.type && media.type.startsWith('video/')) {
@@ -83,7 +82,6 @@
                             mediaContent = `<img src="${media.url}" alt="${media.caption || 'Uploaded media'}" class="w-full h-auto object-cover">`;
                         }
                         
-                        // Only add caption if it exists
                         const captionHtml = media.caption ? `<p class="p-4 text-gray-700 text-sm max-w-md w-full mx-auto">${media.caption}</p>` : '';
 
                         mediaElementDiv.innerHTML = `
@@ -102,7 +100,6 @@
         // Handle Media Upload
         document.addEventListener('DOMContentLoaded', () => {
             const mediaUploadInput = document.getElementById('mediaUpload');
-            // const mediaCaptionInput = document.getElementById('mediaCaption'); // Removed
             const uploadMediaBtn = document.getElementById('uploadMediaBtn');
             const uploadStatus = document.getElementById('uploadStatus');
 
@@ -113,7 +110,6 @@
                 }
 
                 const file = mediaUploadInput.files[0];
-                // const caption = mediaCaptionInput.value.trim(); // Removed
 
                 if (!file) {
                     uploadStatus.textContent = 'Please select a file to upload.';
@@ -123,7 +119,6 @@
                 uploadStatus.textContent = 'Uploading...';
                 try {
                     const fileName = `${Date.now()}-${file.name}`;
-                    // Ensure the storage path matches your rules: artifacts/{appId}/media/{userId}/{fileName}
                     const storageRef = ref(storage, `artifacts/${appId}/media/${currentUserId}/${fileName}`);
                     
                     const snapshot = await uploadBytes(storageRef, file);
@@ -131,15 +126,13 @@
 
                     await addDoc(collection(db, `artifacts/${appId}/media`), {
                         url: downloadURL,
-                        // caption: caption, // Removed
                         uploaderId: currentUserId,
                         type: file.type,
-                        timestamp: serverTimestamp() // Use server timestamp for consistency
+                        timestamp: serverTimestamp()
                     });
 
                     uploadStatus.textContent = 'Upload successful!';
-                    mediaUploadInput.value = ''; // Clear file input
-                    // mediaCaptionInput.value = ''; // Removed
+                    mediaUploadInput.value = '';
                 } catch (error) {
                     console.error("Upload failed:", error);
                     uploadStatus.textContent = `Upload failed: ${error.message}`;
@@ -155,10 +148,9 @@
                 return;
             }
 
-            // Ensure the collection path matches your rules: artifacts/{appId}/wishes
             const q = query(collection(db, `artifacts/${appId}/wishes`), orderBy("timestamp", "desc"));
             onSnapshot(q, (snapshot) => {
-                wishesDisplayArea.innerHTML = ''; // Clear current wishes
+                wishesDisplayArea.innerHTML = '';
                 if (snapshot.empty) {
                     wishesDisplayArea.innerHTML = '<p class="text-gray-500 text-center">No wishes submitted yet. Be the first!</p>';
                 } else {
@@ -167,8 +159,8 @@
                         const wishDiv = document.createElement('div');
                         wishDiv.className = 'bg-white p-4 rounded-lg shadow-sm mb-4 border-l-4 border-violet-400';
                         const timestamp = wish.timestamp ? new Date(wish.timestamp.toDate()).toLocaleString() : 'N/A';
-                        const fromText = wish.senderName ? `~ From ${wish.senderName}` : '~ From a well-wisher'; // Use senderName if available
-                        const uploaderSuffix = wish.uploaderId ? ` (${wish.uploaderId.substring(0, 8)}...)` : ''; 
+                        const fromText = wish.senderName ? `~ From ${wish.senderName}` : '~ From a well-wisher';
+                        const uploaderSuffix = wish.uploaderId ? ` (${wish.uploaderId.substring(0, 8)}...)` : '';
                         
                         wishDiv.innerHTML = `
                             <p class="text-gray-800 text-base italic mb-2">"${wish.message}"</p>
@@ -186,9 +178,9 @@
         // Handle Personal Message Submission (now saves to Firestore)
         document.addEventListener('DOMContentLoaded', () => {
             const personalMessageInput = document.getElementById('personalMessageInput');
-            const personalSenderNameInput = document.getElementById('personalSenderNameInput'); // New input
+            const personalSenderNameInput = document.getElementById('personalSenderNameInput');
             const submitPersonalMessageBtn = document.getElementById('submitPersonalMessageBtn');
-            const personalMessageOutput = document.getElementById('personalMessageOutput'); // This is now for status messages
+            const personalMessageOutput = document.getElementById('personalMessageOutput');
 
             submitPersonalMessageBtn.addEventListener('click', async () => {
                 if (!isAuthReady || !currentUserId) {
@@ -198,7 +190,7 @@
                 }
 
                 const message = personalMessageInput.value.trim();
-                const senderName = personalSenderNameInput.value.trim(); // Get sender name
+                const senderName = personalSenderNameInput.value.trim();
                 
                 if (!message) {
                     personalMessageOutput.textContent = 'Please write a message before submitting.';
@@ -212,14 +204,13 @@
                 try {
                     await addDoc(collection(db, `artifacts/${appId}/wishes`), {
                         message: message,
-                        senderName: senderName, // Save sender name
+                        senderName: senderName,
                         uploaderId: currentUserId,
-                        timestamp: serverTimestamp() // Use server timestamp
+                        timestamp: serverTimestamp()
                     });
                     personalMessageOutput.textContent = 'Your wish has been submitted!';
-                    personalMessageInput.value = ''; // Clear message input
-                    personalSenderNameInput.value = ''; // Clear sender name input
-                    // loadWishes() will auto-update the display
+                    personalMessageInput.value = '';
+                    personalSenderNameInput.value = '';
                 } catch (error) {
                     console.error("Error submitting wish:", error);
                     personalMessageOutput.textContent = `Failed to submit wish: ${error.message}`;
@@ -464,7 +455,7 @@
             </div>
             <div class="bg-white p-6 rounded-lg shadow-md">
                 <p class="text-5xl font-extrabold text-violet-900">£2.5M+</p>
-                <p class="text-lg font-medium text-gray-500 mt-2">Best Year</p>
+                <p class="lg font-medium text-gray-500 mt-2">Best Year</p>
             </div>
         </section>
 
@@ -582,7 +573,7 @@ Thank you for everything. And enjoy your well-deserved retirement—you’ve ear
             <div class="container mx-auto px-4 text-center">
                 <h2 class="text-3xl font-bold text-violet-900 mb-4">💡 Fun Fact! 💡</h2>
                 <p class="max-w-3xl mx-auto text-lg text-gray-700">
-                    Just two months ago, *Beales of Poole*—Steve’s very first workplace—closed its last remaining store, right around the time Steve handed in his retirement notice. Coincidence? We don’t think so. Beales probably heard, and thought, "well, if Steve is calling it a day... ...perhaps it's time for us too!"
+                    Just two months ago, **Beales of Poole**—Steve’s very first workplace—closed its last remaining store, right around when he handed in his retirement notice. Coincidence? We don’t think so. "If Steve is calling it a day... perhaps it's time for us too!"
                 </p>
             </div>
         </section>
@@ -608,7 +599,7 @@ Thank you for everything. And enjoy your well-deserved retirement—you’ve ear
                     <div class="image-display-container mt-6">
                         <img src="https://i.imgur.com/xGNQVoM.jpeg" alt="Steve ready for retirement">
                     </div>
-                    <p class="p-4 text-gray-700 text-sm max-w-md w-full"></p>
+                    <p class="p-4 text-gray-700 text-sm max-w-md w-full">Another memorable moment with Steve!</p>
                 </div>
 
                 <!-- New Upload Section -->
@@ -834,10 +825,22 @@ Thank you for everything. And enjoy your well-deserved retirement—you’ve ear
         //     }
         // });
 
-        // Firebase-connected Personal Message and Wishes Display
-        // This part of the code is now within the module script above.
-        // The DOMContentLoaded listener for personalMessageInput and submitPersonalMessageBtn
-        // will pick up these elements after the full HTML content is loaded.
+        // Personal Message only logic (AI generation removed)
+        const personalMessageInput = document.getElementById('personalMessageInput');
+        const submitPersonalMessageBtn = document.getElementById('submitPersonalMessageBtn');
+        const personalMessageOutput = document.getElementById('personalMessageOutput');
+
+        submitPersonalMessageBtn.addEventListener('click', () => {
+            const message = personalMessageInput.value.trim();
+            if (message) {
+                personalMessageOutput.innerHTML = `<p>"${message}"</p>`;
+                personalMessageOutput.classList.remove('hidden');
+                personalMessageInput.value = ''; // Clear input after submission
+            } else {
+                personalMessageOutput.innerHTML = '<p>Please write a message before submitting.</p>';
+                personalMessageOutput.classList.remove('hidden');
+            }
+        });
     </script>
 </body>
 </html>
